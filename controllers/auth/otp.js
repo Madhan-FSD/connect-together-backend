@@ -3,6 +3,7 @@ const USER = require("../../models/auth/user");
 const getWelcomeEmailTemplate = require("../../templates/welcomeOnBoard");
 const sendOtpEmail = require("../../utils/maller");
 const jwt = require("jsonwebtoken");
+const sendOTP = require("../../helpers/sendOtpHandler");
 
 exports.verifySignUpOtp = async (req, res) => {
   try {
