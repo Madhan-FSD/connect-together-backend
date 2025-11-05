@@ -6,8 +6,8 @@ function generatedPassword() {
 // Otp Helper
 function otpGenerator(expiresInMinutes = 2) {
   const otp = Math.floor(100000 + Math.random() * 90000);
-  const otpExpired = Date.now() + expiresInMinutes * 60 * 1000;
-  return { otp, otpExpired };
+  const otpExpiry = Date.now() + expiresInMinutes * 60 * 1000;
+  return { otp, otpExpiry };
 }
 
 // All error catch handler

@@ -2,10 +2,17 @@ const express = require("express");
 const router = express.Router();
 const Auth = require("../../controllers/auth/users");
 const OTP = require("../../controllers/auth/otp");
+const {
+  validateSignUp,
+  loginValidate,
+} = require("../../middleware/validators");
 
-router.post("/signup", Auth.signUp);
-router.post("/signup-otp", OTP.getOtp);
-router.post("/login", Auth.login);
-router.post("/login-otp", OTP.verifyLoginOtp);
+router.post("/signup", validateSignUp, Auth.signUp);
+router.post("/signup/verify", OTP.verifySignUpOtp);
+router.post("/login", loginValidate, Auth.login);
+router.post("/login/verify", OTP.verifyLoginOtp);
+router.post("/forgot", Auth.forgetPassword);
+router.post("/forgot/reset", Auth.resetPassword);
+router.post("/otp/resend", OTP.resendOtp);
 
 module.exports = router;

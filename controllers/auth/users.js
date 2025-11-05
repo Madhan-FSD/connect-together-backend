@@ -1,99 +1,100 @@
 const USER = require("../../models/auth/user");
-const OTP = require("../../models/auth/otp");
-const getOtpEmailTemplate = require("../../templates/getOtpEmailTemplate");
-const sendOtpEmail = require("../../utils/maller");
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const VALIDATORS = require("../../helpers");
+const sendOTP = require("../../helpers/sendOtpHandler");
+const OTP = require("../../models/auth/otp");
 
 exports.signUp = async (req, res) => {
   try {
     const { firstName, lastName, email, phone } = req.body;
 
     const existUser = await USER.findOne({ email });
-    if (existUser) {
-      return res.status(400).json({ message: "Email Already exists" });
-    }
+    if (existUser)
+      return res.status(400).json({ message: "Email already exists" });
 
     const existPhone = await USER.findOne({ phone });
-    if (existPhone) {
+    if (existPhone)
       return res.status(400).json({ message: "Phone number already exists" });
-    }
 
     const plainPassword = VALIDATORS.generatedPassword();
     const hashPassword = await bcrypt.hash(plainPassword, 10);
 
-    const { otp, otpExpired } = VALIDATORS.otpGenerator(2);
-
-    const newUserId = uuidv4();
-
     await USER.create({
-      userId: newUserId,
+      userId: uuidv4(),
       firstName,
       lastName,
       email,
       phone,
-      isVerifed: false,
       password: hashPassword,
+      isVerifed: false,
     });
 
-    await OTP.findOneAndUpdate(
-      { email },
-      {
-        otp,
-        otpExpired,
-      },
-      { upsert: true },
-    );
+    await sendOTP(email, firstName, "signup");
 
-    const subject = "Verify your email OTP";
-    const html = getOtpEmailTemplate(otp, firstName);
-
-    await sendOtpEmail(email, subject, html);
-
-    return res
-      .status(200)
-      .json({ success: true, message: "Otp Send to your email address" });
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to email for verification",
+    });
   } catch (error) {
-    return VALIDATORS.errorHandlerResponse(
-      res,
-      500,
-      error.message || "Server Error",
-    );
+    return VALIDATORS.errorHandlerResponse(res, 500, error.message);
   }
 };
 
 exports.login = async (req, res) => {
   try {
     const { email } = req.body;
-
     const existUser = await USER.findOne({ email });
-    if (!existUser) {
-      return res.status(400).json({ message: "User is not registered" });
-    }
 
-    if (!existUser) {
-      return res
-        .status(400)
-        .json({ message: "Please verify your email first" });
-    }
+    if (!existUser)
+      return res.status(400).json({ message: "User not registered" });
+    if (!existUser.isVerifed)
+      return res.status(400).json({ message: "Verify your account first" });
 
-    const { otp } = VALIDATORS.otpGenerator();
-
-    await OTP.findOneAndUpdate({ email }, { otp, otpExpiry }, { upsert: true });
-    const subject = "Login OTP | Peer Plus";
-    const html = getOtpEmailTemplate(otp, existUser.firstName);
-
-    await sendOtpEmail(email, subject, html);
+    await sendOTP(email, existUser.firstName, "login");
 
     return res.status(200).json({
-      message: "OTP sent to your email",
+      success: true,
+      message: "OTP sent for login",
     });
   } catch (error) {
-    return VALIDATORS.errorHandlerResponse(
-      res,
-      500,
-      error.message || "Server Error",
-    );
+    return VALIDATORS.errorHandlerResponse(res, 500, error.message);
+  }
+};
+
+exports.forgetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await USER.findOne({ email });
+
+    if (!user) return res.status(400).json({ message: "User not registered" });
+
+    await sendOTP(email, user.firstName, "forget");
+
+    return res.status(200).json({ message: "OTP sent for password reset" });
+  } catch (error) {
+    return VALIDATORS.errorHandlerResponse(res, 500, error.message);
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const otpData = await OTP.findOne({ email, otpType: "forget" });
+
+    if (!otpData) return res.status(400).json({ message: "OTP not found" });
+    if (otpData.otp !== Number(otp))
+      return res.status(400).json({ message: "Invalid OTP" });
+    if (otpData.otpExpiry < Date.now())
+      return res.status(400).json({ message: "OTP expired" });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await USER.updateOne({ email }, { password: hash });
+    await OTP.deleteOne({ email, otpType: "forget" });
+
+    return res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    return VALIDATORS.errorHandlerResponse(res, 500, error.message);
   }
 };

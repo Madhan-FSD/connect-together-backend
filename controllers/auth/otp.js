@@ -4,81 +4,70 @@ const getWelcomeEmailTemplate = require("../../templates/welcomeOnBoard");
 const sendOtpEmail = require("../../utils/maller");
 const jwt = require("jsonwebtoken");
 
-exports.getOtp = async (req, res) => {
+exports.verifySignUpOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
+    const otpData = await OTP.findOne({ email, otpType: "signup" });
 
-    const otpData = await OTP.findOne({ email });
-
-    if (!otpData) return res.status(401).json({ message: "User not found" });
-
+    if (!otpData) return res.status(400).json({ message: "OTP not found" });
     if (otpData.otp !== Number(otp))
-      return res.status(401).json({ message: "Invalid OTP" });
-
+      return res.status(400).json({ message: "Invalid OTP" });
     if (otpData.otpExpiry < Date.now())
-      return res.status(401).json({ message: "OTP expired" });
+      return res.status(400).json({ message: "OTP expired" });
+
+    await USER.updateOne({ email }, { isVerifed: true });
+    await OTP.deleteOne({ email, otpType: "signup" });
 
     const user = await USER.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "User record missing" });
-    }
+    await sendOtpEmail(
+      email,
+      "Welcome to Peer Plus",
+      getWelcomeEmailTemplate(user.firstName, email),
+    );
 
-    const firstName = user.firstName;
-
-    await USER.findOneAndUpdate({ email }, { isVerifed: true });
-
-    await OTP.deleteOne({ email });
-
-    const subject = "Welcome On Board Peer Plus";
-    const html = getWelcomeEmailTemplate(firstName, email);
-    await sendOtpEmail(email, subject, html);
-
-    return res
-      .status(200)
-      .json({ message: "OTP verified and signup completed" });
+    return res.status(200).json({ message: "Signup verified successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };
 
 exports.verifyLoginOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
-    const otpData = await OTP.findOne({ email });
+    const otpData = await OTP.findOne({ email, otpType: "login" });
 
-    if (!otpData) {
-      return res.status(400).json({ message: "OTP not found, please retry" });
-    }
-
-    if (otpData.otp !== Number(otp)) {
+    if (!otpData) return res.status(400).json({ message: "OTP not found" });
+    if (otpData.otp !== Number(otp))
       return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    if (otpData.otpExpiry < Date.now()) {
+    if (otpData.otpExpiry < Date.now())
       return res.status(400).json({ message: "OTP expired" });
-    }
 
-    const user = await USER.findOne({ email }).select("-__v");
+    const user = await USER.findOne({ email });
 
-    await OTP.deleteOne({ email });
+    await OTP.deleteOne({ email, otpType: "login" });
 
     const token = jwt.sign(
-      {
-        userId: user.userId,
-        email: user.email,
-      },
+      { userId: user.userId, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
-    return res.status(200).json({
-      message: "Login successful",
-      token,
-      user,
-    });
+
+    return res.status(200).json({ message: "Login successful", token, user });
   } catch (error) {
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+exports.resendOtp = async (req, res) => {
+  try {
+    const { email, otpType } = req.body;
+    const user = await USER.findOne({ email });
+
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    const response = await sendOTP(email, user.firstName, otpType);
+    return res.status(200).json(response);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
