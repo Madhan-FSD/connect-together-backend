@@ -5,7 +5,7 @@ const OTP = require("../../controllers/auth/otp");
 const {
   validateSignUp,
   loginValidate,
-} = require("../../middleware/validators");
+} = require("../../validations/user.validate");
 
 router.post("/signup", validateSignUp, Auth.signUp);
 router.post("/signup/verify", OTP.verifySignUpOtp);
