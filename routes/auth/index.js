@@ -6,6 +6,7 @@ const {
   validateSignUp,
   loginValidate,
 } = require("../../validations/user.validate");
+const authMiddleware = require("../../middleware/auth");
 
 router.post("/signup", validateSignUp, Auth.signUp);
 router.post("/signup/verify", OTP.verifySignUpOtp);
@@ -15,5 +16,6 @@ router.post("/forgot", Auth.forgetPassword);
 router.post("/forgot/reset", Auth.resetPassword);
 router.post("/otp/resend", OTP.resendOtp);
 router.post("/onboarding", Auth.onBoarding);
+router.get("/profile", authMiddleware, Auth.profile);
 
 module.exports = router;

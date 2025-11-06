@@ -5,6 +5,7 @@ const VALIDATORS = require("../../helpers");
 const sendOTP = require("../../helpers/sendOtpHandler");
 const OTP = require("../../models/auth/otp");
 const Counter = require("../../models/auth/counter");
+const jwt = require("jsonwebtoken");
 
 const getNextChildId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -55,21 +56,105 @@ exports.signUp = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email } = req.body;
-    const existUser = await USER.findOne({ email });
+    const { email, password, userId, pin, loginType, otp } = req.body;
 
-    if (!existUser)
-      return res.status(400).json({ message: "User not registered" });
-    if (!existUser.isVerifed)
-      return res.status(400).json({ message: "Verify your account first" });
+    if (loginType === "password") {
+      if (!email || !password)
+        return res.status(400).json({ message: "Email and password required" });
 
-    await sendOTP(email, existUser.firstName, "login");
+      const user = await USER.findOne({ email });
+      if (!user)
+        return res.status(400).json({ message: "User not registered" });
+      if (!user.isVerifed)
+        return res.status(400).json({ message: "Verify your account first" });
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent for login",
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch)
+        return res.status(400).json({ message: "Invalid password" });
+
+      const token = jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful with password",
+        token,
+        userType: user.userType,
+        user,
+      });
+    }
+
+    if (loginType === "otp") {
+      if (!email)
+        return res
+          .status(400)
+          .json({ message: "Email required for OTP login" });
+
+      const user = await USER.findOne({ email });
+      if (!user)
+        return res.status(400).json({ message: "User not registered" });
+      if (!user.isVerifed)
+        return res.status(400).json({ message: "Verify your account first" });
+
+      await sendOTP(email, user.firstName, "login");
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent for login",
+      });
+    }
+
+    if (loginType === "child") {
+      if (!userId || !pin)
+        return res
+          .status(400)
+          .json({ message: "User ID and PIN are required" });
+
+      const parent = await USER.findOne({
+        "children.userId": userId,
+      });
+
+      if (!parent)
+        return res.status(404).json({ message: "Child account not found" });
+
+      const child = parent.children.find((c) => c.userId === userId);
+
+      if (!child || child.pin !== pin)
+        return res.status(400).json({ message: "Invalid userId or PIN" });
+
+      const token = jwt.sign(
+        {
+          parentId: parent._id,
+          childId: child._id,
+          userId: child.userId,
+          relation: child.relation,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Child login successful",
+        token,
+        child: {
+          firstName: child.firstName,
+          lastName: child.lastName,
+          userId: child.userId,
+          relation: child.relation,
+        },
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Invalid loginType. Use 'password', 'otp', or 'child'",
     });
   } catch (error) {
+    console.error("Login Error:", error);
     return VALIDATORS.errorHandlerResponse(res, 500, error.message);
   }
 };
@@ -172,5 +257,40 @@ exports.onBoarding = async (req, res) => {
   } catch (error) {
     console.error("Onboarding Error:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+exports.profile = async (req, res) => {
+  try {
+    const user = await USER.findById(req.user._id).lean();
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+
+    if (user.children?.length > 0) {
+      user.children = user.children.map((child) => ({
+        userId: child.userId,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        gender: child.gender,
+        relation: child.relation,
+        dateOfBirth: child.dateOfBirth,
+        pin: child.pin,
+      }));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile fetched successfully",
+      profile: user,
+    });
+  } catch (error) {
+    console.log("Profile API Error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
   }
 };
