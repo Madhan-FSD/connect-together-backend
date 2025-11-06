@@ -48,7 +48,7 @@ exports.verifyLoginOtp = async (req, res) => {
     await OTP.deleteOne({ email, otpType: "login" });
 
     const token = jwt.sign(
-      { userId: user.userId, email: user.email },
+      { id: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" },
     );
