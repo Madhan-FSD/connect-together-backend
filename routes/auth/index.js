@@ -14,5 +14,6 @@ router.post("/login/verify", OTP.verifyLoginOtp);
 router.post("/forgot", Auth.forgetPassword);
 router.post("/forgot/reset", Auth.resetPassword);
 router.post("/otp/resend", OTP.resendOtp);
+router.post("/onboarding", Auth.onBoarding);
 
 module.exports = router;

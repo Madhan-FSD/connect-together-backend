@@ -43,7 +43,7 @@ exports.verifyLoginOtp = async (req, res) => {
     if (otpData.otpExpiry < Date.now())
       return res.status(400).json({ message: "OTP expired" });
 
-    const user = await USER.findOne({ email });
+    const user = await USER.findOne({ email }).select("-password");
 
     await OTP.deleteOne({ email, otpType: "login" });
 
