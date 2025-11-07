@@ -263,6 +263,24 @@ exports.editProfile = async (req, res) => {
 
     if (updateData.email) delete updateData.email;
 
+    const existingUser = await USER.findById(userId);
+
+    if (updateData.phone && updateData.phone === existingUser.phone) {
+      delete updateData.phone;
+    }
+
+    if (updateData.phone) {
+      const duplicate = await USER.findOne({
+        phone: updateData.phone,
+        _id: { $ne: userId },
+      });
+      if (duplicate) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Phone number already exists" });
+      }
+    }
+
     if (updateData.password) {
       const hashPassword = await bcrypt.hash(updateData.password, 10);
       updateData.password = hashPassword;
@@ -286,7 +304,7 @@ exports.editProfile = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
-    console.log("Edit Profile Error:", error);
+    console.error("Edit Profile Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
