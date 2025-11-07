@@ -218,3 +218,42 @@ exports.profile = async (req, res) => {
       .json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+exports.editProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updateData = { ...req.body };
+
+    if (updateData.email) delete updateData.email;
+
+    if (updateData.password) {
+      const hashPassword = await bcrypt.hash(updateData.password, 10);
+      updateData.password = hashPassword;
+    }
+
+    const updatedUser = await USER.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true, fields: "-password" },
+    );
+
+    if (!updatedUser) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.log("Edit Profile Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};

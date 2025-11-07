@@ -18,5 +18,6 @@ router.post("/forgot/reset", Auth.resetPassword);
 router.post("/otp/resend", OTP.resendOtp);
 router.post("/onboarding", onBoarding.onBoarding);
 router.get("/profile", authMiddleware, Auth.profile);
+router.patch("/edit-profile", authMiddleware, Auth.editProfile);
 
 module.exports = router;
