@@ -8,6 +8,8 @@ const {
   loginValidate,
 } = require("../../validations/user.validate");
 const authMiddleware = require("../../middleware/auth");
+const { updatePhoto } = require("../../controllers/photos/index");
+const upload = require("../../middleware/upload");
 
 router.post("/signup", validateSignUp, Auth.signUp);
 router.post("/signup/verify", OTP.verifySignUpOtp);
@@ -19,5 +21,5 @@ router.post("/otp/resend", OTP.resendOtp);
 router.post("/onboarding", onBoarding.onBoarding);
 router.get("/profile", authMiddleware, Auth.profile);
 router.patch("/edit-profile", authMiddleware, Auth.editProfile);
-
+router.post("/update-photo", upload.single("photo"), updatePhoto);
 module.exports = router;
