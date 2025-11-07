@@ -10,6 +10,7 @@ const {
 const authMiddleware = require("../../middleware/auth");
 const { updatePhoto } = require("../../controllers/photos/index");
 const upload = require("../../middleware/upload");
+const { googleLogin } = require("../../controllers/auth/googleLogin");
 
 router.post("/signup", validateSignUp, Auth.signUp);
 router.post("/signup/verify", OTP.verifySignUpOtp);
@@ -22,4 +23,5 @@ router.post("/onboarding", onBoarding.onBoarding);
 router.get("/profile", authMiddleware, Auth.profile);
 router.patch("/edit-profile", authMiddleware, Auth.editProfile);
 router.post("/update-photo", upload.single("photo"), updatePhoto);
+router.post("/google-login", googleLogin);
 module.exports = router;

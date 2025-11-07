@@ -57,6 +57,12 @@ const UserSchema = new mongoose.Schema(
     gender: { type: String },
     pin: { type: String, minlength: 6, maxlength: 6 },
     children: [ChildSchema],
+    googleId: { type: String, unique: true, sparse: true },
+    loginProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
   },
   { timestamps: true },
 );

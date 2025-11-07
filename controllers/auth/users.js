@@ -45,7 +45,7 @@ exports.signUp = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password, userId, pin, loginType, otp } = req.body;
+    const { email, password, userId, pin, loginType } = req.body;
 
     if (loginType === "password") {
       if (!email || !password)
