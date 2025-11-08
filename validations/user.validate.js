@@ -1,5 +1,7 @@
-const { errorHandlerResponse } = require("../helpers");
-const { regex } = require("../utils/regex");
+import VALIDATORS from "../helpers/index.js";
+import { regex } from "../utils/regex.js";
+
+const { errorHandlerResponse } = VALIDATORS;
 
 function validateSignUp(req, res, next) {
   const { firstName, lastName, email, phone } = req.body;
@@ -35,4 +37,4 @@ function loginValidate(req, res, next) {
   next();
 }
 
-module.exports = { validateSignUp, loginValidate };
+export { validateSignUp, loginValidate };
