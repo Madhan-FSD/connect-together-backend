@@ -46,13 +46,8 @@ router.post("/google-login", googleLogin);
 // ============================
 
 router.get("/profile", authMiddleware, Auth.profile);
-router.patch("/profile/edit", authMiddleware, Auth.editProfile);
-router.post(
-  "/profile/photo",
-  authMiddleware,
-  upload.single("photo"),
-  updatePhoto,
-);
+router.patch("/edit-profile", authMiddleware, Auth.editProfile);
+router.post("/update-photo", upload.single("photo"), updatePhoto);
 
 // ============================
 // Onboarding Routes (Protected)

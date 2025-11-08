@@ -1,7 +1,9 @@
-const { otpGenerator } = require(".");
-const OTP = require("../models/auth/otp");
-const getOtpEmailTemplate = require("../templates/getOtpEmailTemplate");
-const sendOtpEmail = require("../utils/maller");
+import VALIDATORS from "./index.js";
+import OTP from "../models/auth/otp.js";
+import getOtpEmailTemplate from "../templates/getOtpEmailTemplate.js";
+import sendOtpEmail from "../utils/maller.js";
+
+const { otpGenerator } = VALIDATORS;
 
 async function sendOTP(email, firstName, otpType) {
   const oldOtp = await OTP.findOne({ email, otpType });
@@ -48,4 +50,4 @@ async function sendOTP(email, firstName, otpType) {
   return { status: true, message: "OTP sent successfully" };
 }
 
-module.exports = sendOTP;
+export default sendOTP;

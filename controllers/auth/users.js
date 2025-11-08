@@ -1,13 +1,13 @@
-const USER = require("../../models/auth/user");
-const { v4: uuidv4 } = require("uuid");
-const bcrypt = require("bcrypt");
-const VALIDATORS = require("../../helpers");
-const sendOTP = require("../../helpers/sendOtpHandler");
-const OTP = require("../../models/auth/otp");
-const jwt = require("jsonwebtoken");
-const USER_PHOTO = require("../../models/photos/photoUsers");
+import USER from "../../models/auth/user.js";
+import { v4 as uuidv4 } from "uuid";
+import bcrypt from "bcrypt";
+import VALIDATORS from "../../helpers/index.js";
+import sendOTP from "../../helpers/sendOtpHandler.js";
+import OTP from "../../models/auth/otp.js";
+import jwt from "jsonwebtoken";
+import USER_PHOTO from "../../models/photos/photoUsers.js";
 
-exports.signUp = async (req, res) => {
+export const signUp = async (req, res) => {
   try {
     const { firstName, lastName, email, phone } = req.body;
 
@@ -43,7 +43,7 @@ exports.signUp = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   try {
     const { email, password, userId, pin, loginType } = req.body;
 
@@ -148,7 +148,7 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.forgetPassword = async (req, res) => {
+export const forgetPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await USER.findOne({ email });
@@ -163,7 +163,7 @@ exports.forgetPassword = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (req, res) => {
+export const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
@@ -185,7 +185,7 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-exports.profile = async (req, res) => {
+export const profile = async (req, res) => {
   try {
     const user = await USER.findById(req.user._id).lean();
 
@@ -256,7 +256,7 @@ exports.profile = async (req, res) => {
   }
 };
 
-exports.editProfile = async (req, res) => {
+export const editProfile = async (req, res) => {
   try {
     const userId = req.user._id;
     const updateData = { ...req.body };
@@ -311,4 +311,13 @@ exports.editProfile = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+export default {
+  signUp,
+  login,
+  forgetPassword,
+  resetPassword,
+  profile,
+  editProfile,
 };

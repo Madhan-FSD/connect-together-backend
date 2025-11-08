@@ -15,74 +15,8 @@ const DEFAULT_LAST_NAME = "User";
 // Initialize Google OAuth client
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-/**
- * Parse user's full name into first and last names
- */
-const parseFullName = (fullName) => {
-  const nameParts = fullName?.split(" ") || [];
-  return {
-    firstName: nameParts[0] || DEFAULT_FIRST_NAME,
-    lastName: nameParts.slice(1).join(" ") || DEFAULT_LAST_NAME,
-  };
-};
 
-/**
- * Generate a temporary password for Google users
- */
-const generateTempPassword = async () => {
-  const plainPassword = uuidv4().slice(0, TEMP_PASSWORD_LENGTH);
-  const hashedPassword = await bcrypt.hash(plainPassword, BCRYPT_SALT_ROUNDS);
-  return hashedPassword;
-};
-
-/**
- * Update existing user with Google credentials
- */
-const updateExistingUser = async (user, googleId) => {
-  if (!user.googleId) {
-    user.googleId = googleId;
-    user.loginProvider = LOGIN_PROVIDER;
-    user.isVerifed = true;
-    await user.save();
-  }
-  return user;
-};
-
-/**
- * Create new user from Google profile
- */
-const createGoogleUser = async (googleProfile) => {
-  const { googleId, email, name, picture } = googleProfile;
-  const { firstName, lastName } = parseFullName(name);
-  const hashedPassword = await generateTempPassword();
-
-  return await USER.create({
-    userId: uuidv4(),
-    firstName,
-    lastName,
-    email,
-    phone: `google-${Date.now()}`,
-    password: hashedPassword,
-    isVerifed: true,
-    googleId,
-    loginProvider: LOGIN_PROVIDER,
-    photo: picture,
-  });
-};
-
-/**
- * Generate JWT token for authenticated user
- */
-const generateAuthToken = (user) => {
-  return jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-    expiresIn: TOKEN_EXPIRY,
-  });
-};
-
-/**
- * Google Login/Signup Handler
- */
-export const googleLogin = async (req, res) => {
+const googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
 
@@ -161,3 +95,5 @@ export const googleLogin = async (req, res) => {
     });
   }
 };
+
+export { googleLogin };

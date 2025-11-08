@@ -1,4 +1,4 @@
-import Mailgen from "mailgen";
+import  Mailgen from 'mailgen'
 import {
   EMAIL_PRODUCT,
   EMAIL_THEME,
@@ -53,3 +53,4 @@ const getOtpEmailTemplate = (otp, firstName = "") => {
 };
 
 export default getOtpEmailTemplate;
+

@@ -1,6 +1,6 @@
-const UserPhoto = require("../../models/photos/photoUsers");
-const USER = require("../../models/auth/user");
-const mongoose = require("mongoose");
+import UserPhoto from "../../models/photos/photoUsers.js";
+import USER from "../../models/auth/user.js";
+import mongoose from "mongoose";
 
 const makeDoc = (file) => ({
   data: file.buffer,
@@ -8,7 +8,7 @@ const makeDoc = (file) => ({
   fileSizeKB: Math.round(file.size / 1024),
 });
 
-exports.updatePhoto = async (req, res) => {
+export const updatePhoto = async (req, res) => {
   try {
     const { userId, photoType, childId } = req.body;
     const file = req.file;
@@ -81,3 +81,5 @@ exports.updatePhoto = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+export default { updatePhoto };
