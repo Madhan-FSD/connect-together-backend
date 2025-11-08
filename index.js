@@ -3,6 +3,7 @@ const express = require("express");
 const { connectedDB } = require("./config");
 const cors = require("cors");
 const authRoutes = require("./routes/auth/index.js");
+
 const app = express();
 app.use(cors());
 app.use(express.json());

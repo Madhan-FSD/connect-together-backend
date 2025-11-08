@@ -5,6 +5,7 @@ const VALIDATORS = require("../../helpers");
 const sendOTP = require("../../helpers/sendOtpHandler");
 const OTP = require("../../models/auth/otp");
 const jwt = require("jsonwebtoken");
+const USER_PHOTO = require("../../models/photos/photoUsers");
 
 exports.signUp = async (req, res) => {
   try {
@@ -44,7 +45,7 @@ exports.signUp = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password, userId, pin, loginType, otp } = req.body;
+    const { email, password, userId, pin, loginType } = req.body;
 
     if (loginType === "password") {
       if (!email || !password)
@@ -194,27 +195,120 @@ exports.profile = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    const userPhoto = await USER_PHOTO.findOne({
+      userId: user._id,
+      photoType: "user",
+    });
+
+    let userPhotoBase64 = null;
+    if (userPhoto?.data) {
+      userPhotoBase64 = `data:${
+        userPhoto.contentType
+      };base64,${userPhoto.data.toString("base64")}`;
+    }
+
     if (user.children?.length > 0) {
-      user.children = user.children.map((child) => ({
-        userId: child.userId,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        gender: child.gender,
-        relation: child.relation,
-        dateOfBirth: child.dateOfBirth,
-        pin: child.pin,
-      }));
+      const childIds = user.children.map((child) => child._id);
+
+      const childPhotos = await USER_PHOTO.find({
+        childId: { $in: childIds },
+        photoType: "child",
+      });
+
+      user.children = user.children.map((child) => {
+        const photoDoc = childPhotos.find(
+          (photo) => photo.childId?.toString() === child._id.toString(),
+        );
+
+        const photoBase64 =
+          photoDoc && photoDoc.data
+            ? `data:${photoDoc.contentType};base64,${photoDoc.data.toString(
+                "base64",
+              )}`
+            : null;
+
+        return {
+          _id: child._id,
+          firstName: child.firstName,
+          lastName: child.lastName,
+          gender: child.gender,
+          relation: child.relation,
+          dateOfBirth: child.dateOfBirth,
+          pin: child.pin,
+          photo: photoBase64,
+        };
+      });
     }
 
     res.status(200).json({
       success: true,
       message: "Profile fetched successfully",
-      profile: user,
+      profile: {
+        ...user,
+        photo: userPhotoBase64,
+      },
     });
   } catch (error) {
-    console.log("Profile API Error:", error);
+    console.error("Profile API Error:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+exports.editProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updateData = { ...req.body };
+
+    if (updateData.email) delete updateData.email;
+
+    const existingUser = await USER.findById(userId);
+
+    if (updateData.phone && updateData.phone === existingUser.phone) {
+      delete updateData.phone;
+    }
+
+    if (updateData.phone) {
+      const duplicate = await USER.findOne({
+        phone: updateData.phone,
+        _id: { $ne: userId },
+      });
+      if (duplicate) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Phone number already exists" });
+      }
+    }
+
+    if (updateData.password) {
+      const hashPassword = await bcrypt.hash(updateData.password, 10);
+      updateData.password = hashPassword;
+    }
+
+    const updatedUser = await USER.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true, fields: "-password" },
+    );
+
+    if (!updatedUser) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Edit Profile Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

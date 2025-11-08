@@ -54,8 +54,15 @@ const UserSchema = new mongoose.Schema(
     isDeleted: { type: Boolean, default: false },
     isVerifed: { type: Boolean, default: false },
     hasChild: { type: Boolean, default: false },
+    gender: { type: String },
     pin: { type: String, minlength: 6, maxlength: 6 },
     children: [ChildSchema],
+    googleId: { type: String, unique: true, sparse: true },
+    loginProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
   },
   { timestamps: true },
 );
