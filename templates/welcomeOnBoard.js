@@ -1,45 +1,51 @@
-const Mailgen = require("mailgen");
+import Mailgen from "mailgen";
+import {
+  EMAIL_PRODUCT,
+  EMAIL_THEME,
+  WELCOME_EMAIL,
+} from "../constants/email.constants.js";
 
 const getWelcomeEmailTemplate = (firstName, email) => {
   const mailGenerator = new Mailgen({
-    theme: "default",
+    theme: EMAIL_THEME,
     product: {
-      name: "Peer Plus",
-      link: "https://peerplus.com",
-      copyright: "© 2025 Peer Plus. All rights reserved.",
+      name: EMAIL_PRODUCT.NAME,
+      link: EMAIL_PRODUCT.LINK,
+      copyright: EMAIL_PRODUCT.COPYRIGHT,
     },
   });
 
   const emailBody = {
     body: {
       name: firstName,
-      intro: "Welcome to Peer Plus! We’re thrilled to have you on board.",
+      intro: WELCOME_EMAIL.INTRO,
       table: {
         data: [
           {
-            "Account Name": firstName,
-            "Registered Email": email,
+            [WELCOME_EMAIL.TABLE_LABELS.ACCOUNT_NAME]: firstName,
+            [WELCOME_EMAIL.TABLE_LABELS.REGISTERED_EMAIL]: email,
           },
         ],
         columns: {
-          customWidth: { "Account Name": "50%", "Registered Email": "50%" },
+          customWidth: {
+            [WELCOME_EMAIL.TABLE_LABELS.ACCOUNT_NAME]: "50%",
+            [WELCOME_EMAIL.TABLE_LABELS.REGISTERED_EMAIL]: "50%",
+          },
           customAlignment: {
-            "Account Name": "left",
-            "Registered Email": "left",
+            [WELCOME_EMAIL.TABLE_LABELS.ACCOUNT_NAME]: "left",
+            [WELCOME_EMAIL.TABLE_LABELS.REGISTERED_EMAIL]: "left",
           },
         },
       },
       action: {
-        instructions:
-          "To start exploring your Peer Plus account and connect with peers, click the button below:",
+        instructions: WELCOME_EMAIL.INSTRUCTIONS,
         button: {
-          color: "#667eea",
-          text: "Get Started Now",
-          link: "https://peerplus.com/dashboard",
+          color: WELCOME_EMAIL.BUTTON_COLOR,
+          text: WELCOME_EMAIL.BUTTON_TEXT,
+          link: WELCOME_EMAIL.DASHBOARD_LINK,
         },
       },
-      outro:
-        "Need help or have any questions? Just reply to this email — our support team is here to assist you anytime.",
+      outro: WELCOME_EMAIL.OUTRO,
     },
   };
 
@@ -48,4 +54,4 @@ const getWelcomeEmailTemplate = (firstName, email) => {
   return emailTemplate;
 };
 
-module.exports = getWelcomeEmailTemplate;
+export default getWelcomeEmailTemplate;
