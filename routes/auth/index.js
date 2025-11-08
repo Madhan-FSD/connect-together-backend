@@ -1,27 +1,63 @@
-const express = require("express");
-const router = express.Router();
-const Auth = require("../../controllers/auth/users");
-const onBoarding = require("../../controllers/auth/onBoarding");
-const OTP = require("../../controllers/auth/otp");
-const {
+import express from "express";
+
+// Controllers
+import Auth from "../../controllers/auth/users.js";
+import onBoarding from "../../controllers/auth/onBoarding.js";
+import OTP from "../../controllers/auth/otp.js";
+import { googleLogin } from "../../controllers/auth/googleLogin.js";
+import { updatePhoto } from "../../controllers/photos/index.js";
+
+// Middleware
+import authMiddleware from "../../middleware/auth.js";
+import upload from "../../middleware/upload.js";
+
+// Validators
+import {
   validateSignUp,
   loginValidate,
-} = require("../../validations/user.validate");
-const authMiddleware = require("../../middleware/auth");
-const { updatePhoto } = require("../../controllers/photos/index");
-const upload = require("../../middleware/upload");
-const { googleLogin } = require("../../controllers/auth/googleLogin");
+} from "../../validations/user.validate.js";
 
+const router = express.Router();
+
+// ============================
+// Authentication Routes
+// ============================
+
+// Sign up flow
 router.post("/signup", validateSignUp, Auth.signUp);
 router.post("/signup/verify", OTP.verifySignUpOtp);
+
+// Login flow
 router.post("/login", loginValidate, Auth.login);
 router.post("/login/verify", OTP.verifyLoginOtp);
+
+// Password reset flow
 router.post("/forgot", Auth.forgetPassword);
 router.post("/forgot/reset", Auth.resetPassword);
+
+// OTP management
 router.post("/otp/resend", OTP.resendOtp);
-router.post("/onboarding", onBoarding.onBoarding);
-router.get("/profile", authMiddleware, Auth.profile);
-router.patch("/edit-profile", authMiddleware, Auth.editProfile);
-router.post("/update-photo", upload.single("photo"), updatePhoto);
+
+// Social authentication
 router.post("/google-login", googleLogin);
-module.exports = router;
+
+// ============================
+// User Profile Routes (Protected)
+// ============================
+
+router.get("/profile", authMiddleware, Auth.profile);
+router.patch("/profile/edit", authMiddleware, Auth.editProfile);
+router.post(
+  "/profile/photo",
+  authMiddleware,
+  upload.single("photo"),
+  updatePhoto,
+);
+
+// ============================
+// Onboarding Routes (Protected)
+// ============================
+
+router.post("/onboarding", authMiddleware, onBoarding.onBoarding);
+
+export default router;
