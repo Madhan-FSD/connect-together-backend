@@ -1,4 +1,4 @@
-const Mailgen = require("mailgen");
+import  Mailgen from 'mailgen'
 
 const getOtpEmailTemplate = (otp, firstName = "") => {
   const mailGenerator = new Mailgen({
@@ -44,4 +44,5 @@ const getOtpEmailTemplate = (otp, firstName = "") => {
   return mailGenerator.generate(emailBody);
 };
 
-module.exports = getOtpEmailTemplate;
+export default getOtpEmailTemplate;
+

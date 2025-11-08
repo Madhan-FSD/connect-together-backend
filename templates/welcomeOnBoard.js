@@ -1,4 +1,5 @@
-const Mailgen = require("mailgen");
+import Mailgen from 'mailgen'
+
 
 const getWelcomeEmailTemplate = (firstName, email) => {
   const mailGenerator = new Mailgen({
@@ -48,4 +49,4 @@ const getWelcomeEmailTemplate = (firstName, email) => {
   return emailTemplate;
 };
 
-module.exports = getWelcomeEmailTemplate;
+export default getWelcomeEmailTemplate;

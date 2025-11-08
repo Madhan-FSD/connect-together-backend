@@ -1,6 +1,6 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-const MONGO_URI = process.env.LOCAL_MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI || process.env.LOCAL_MONGO_URI;
 
 const connectedDB = async () => {
   try {
@@ -12,4 +12,4 @@ const connectedDB = async () => {
   }
 };
 
-module.exports = { connectedDB, mongoose };
+export { connectedDB, mongoose };

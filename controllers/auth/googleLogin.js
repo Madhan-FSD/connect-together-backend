@@ -1,12 +1,13 @@
-const { OAuth2Client } = require("google-auth-library");
-const USER = require("../../models/auth/user");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
-const { v4: uuidv4 } = require("uuid");
+import { OAuth2Client } from "google-auth-library";
+import USER from "../../models/auth/user.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import { v4 as uuidv4 } from "uuid";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-exports.googleLogin = async (req, res) => {
+
+const googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
 
@@ -82,3 +83,5 @@ exports.googleLogin = async (req, res) => {
     });
   }
 };
+
+export { googleLogin };

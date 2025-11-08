@@ -1,5 +1,5 @@
-const USER = require("../../models/auth/user");
-const Counter = require("../../models/auth/counter");
+import USER from "../../models/auth/user.js";
+import Counter from "../../models/auth/counter.js";
 
 const getNextChildId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -12,7 +12,7 @@ const getNextChildId = async () => {
   return `peer${formatted}`;
 };
 
-exports.onBoarding = async (req, res) => {
+export const onBoarding = async (req, res) => {
   try {
     const { email, hasChild, childData } = req.body;
 
@@ -75,3 +75,5 @@ exports.onBoarding = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+
+export default { onBoarding };

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 // --- Child Schema ---
 const ChildSchema = new mongoose.Schema(
@@ -67,4 +67,4 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-module.exports = mongoose.model("Users", UserSchema);
+export default mongoose.model("Users", UserSchema);

@@ -1,8 +1,8 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const CounterSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   value: { type: Number, default: 0 },
 });
 
-module.exports = mongoose.model("Counter", CounterSchema);
+export default mongoose.model("Counter", CounterSchema);

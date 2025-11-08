@@ -1,11 +1,11 @@
-const OTP = require("../../models/auth/otp");
-const USER = require("../../models/auth/user");
-const getWelcomeEmailTemplate = require("../../templates/welcomeOnBoard");
-const sendOtpEmail = require("../../utils/maller");
-const jwt = require("jsonwebtoken");
-const sendOTP = require("../../helpers/sendOtpHandler");
+import OTP from "../../models/auth/otp.js";
+import USER from "../../models/auth/user.js";
+import getWelcomeEmailTemplate from "../../templates/welcomeOnBoard.js";
+import sendOtpEmail from "../../utils/maller.js";
+import jwt from "jsonwebtoken";
+import sendOTP from "../../helpers/sendOtpHandler.js";
 
-exports.verifySignUpOtp = async (req, res) => {
+export const verifySignUpOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const otpData = await OTP.findOne({ email, otpType: "signup" });
@@ -32,7 +32,7 @@ exports.verifySignUpOtp = async (req, res) => {
   }
 };
 
-exports.verifyLoginOtp = async (req, res) => {
+export const verifyLoginOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const otpData = await OTP.findOne({ email, otpType: "login" });
@@ -59,7 +59,7 @@ exports.verifyLoginOtp = async (req, res) => {
   }
 };
 
-exports.resendOtp = async (req, res) => {
+export const resendOtp = async (req, res) => {
   try {
     const { email, otpType } = req.body;
     const user = await USER.findOne({ email });
@@ -71,4 +71,10 @@ exports.resendOtp = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
+};
+
+export default {
+  verifySignUpOtp,
+  verifyLoginOtp,
+  resendOtp,
 };
