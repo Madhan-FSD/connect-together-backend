@@ -46,6 +46,7 @@ const UserSchema = new mongoose.Schema(
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
+    username: { type: String, unique: true },
     phone: { type: String, required: true, unique: true },
     countryCode: { type: String, default: "+91" },
     password: { type: String, required: true },
@@ -66,5 +67,13 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+// Pre-save hook to automatically set username from email
+UserSchema.pre("save", function (next) {
+  if (this.isNew && !this.username && this.email) {
+    this.username = this.email.split("@")[0];
+  }
+  next();
+});
 
 export default mongoose.model("Users", UserSchema);
