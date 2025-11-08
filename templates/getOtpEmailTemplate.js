@@ -1,43 +1,51 @@
 import  Mailgen from 'mailgen'
+import {
+  EMAIL_PRODUCT,
+  EMAIL_THEME,
+  OTP_EMAIL,
+} from "../constants/email.constants.js";
 
 const getOtpEmailTemplate = (otp, firstName = "") => {
   const mailGenerator = new Mailgen({
-    theme: "default",
+    theme: EMAIL_THEME,
     product: {
-      name: "Peer Plus",
-      link: "https://peerplus.com",
-      copyright: "© 2025 Peer Plus. All rights reserved.",
+      name: EMAIL_PRODUCT.NAME,
+      link: EMAIL_PRODUCT.LINK,
+      copyright: EMAIL_PRODUCT.COPYRIGHT,
     },
   });
 
   const emailBody = {
     body: {
-      name: firstName ? firstName : "User",
-      intro:
-        "We’ve received a request to verify your Peer Plus account. Please use the following One-Time Password (OTP) to complete your verification:",
+      name: firstName || OTP_EMAIL.DEFAULT_USER_NAME,
+      intro: OTP_EMAIL.INTRO,
       table: {
         data: [
           {
-            "Your OTP Code": otp,
-            Validity: "2 minutes",
+            [OTP_EMAIL.TABLE_LABELS.OTP_CODE]: otp,
+            [OTP_EMAIL.TABLE_LABELS.VALIDITY]: OTP_EMAIL.VALIDITY,
           },
         ],
         columns: {
-          customWidth: { "Your OTP Code": "50%", Validity: "50%" },
-          customAlignment: { "Your OTP Code": "center", Validity: "center" },
+          customWidth: {
+            [OTP_EMAIL.TABLE_LABELS.OTP_CODE]: "50%",
+            [OTP_EMAIL.TABLE_LABELS.VALIDITY]: "50%",
+          },
+          customAlignment: {
+            [OTP_EMAIL.TABLE_LABELS.OTP_CODE]: "center",
+            [OTP_EMAIL.TABLE_LABELS.VALIDITY]: "center",
+          },
         },
       },
       action: {
-        instructions:
-          "Enter this OTP in the app or website to complete your verification.",
+        instructions: OTP_EMAIL.INSTRUCTIONS,
         button: {
-          color: "#667eea",
-          text: "Verify My Account",
-          link: "https://peerplus.com/verify",
+          color: OTP_EMAIL.BUTTON_COLOR,
+          text: OTP_EMAIL.BUTTON_TEXT,
+          link: OTP_EMAIL.VERIFY_LINK,
         },
       },
-      outro:
-        "This OTP is confidential. Do not share it with anyone. If you did not request this code, please ignore this email or contact our support team immediately.",
+      outro: OTP_EMAIL.OUTRO,
     },
   };
 
