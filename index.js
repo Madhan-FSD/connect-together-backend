@@ -3,7 +3,7 @@ const express = require("express");
 const { connectedDB } = require("./config");
 const cors = require("cors");
 const authRoutes = require("./routes/auth/index.js");
-
+const institution = require("./routes/admin/index.js");
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -11,6 +11,7 @@ app.use(express.json());
 const PORT = process.env.LOCAL_PORT || 8010;
 
 app.use("/user/auth/api/", authRoutes);
+app.use("/admin/api/", institution);
 
 app.get("/", (req, res) => {
   res.send("Hello Wold!");
