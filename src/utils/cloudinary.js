@@ -9,13 +9,9 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true, // Always use HTTPS
+  secure: true,
 });
 
-/**
- * Safely checks if a local file exists and deletes it.
- * @param {string} filePath - The temporary path of the file.
- */
 const safelyUnlink = async (filePath) => {
   if (!filePath) return;
   try {
@@ -28,17 +24,10 @@ const safelyUnlink = async (filePath) => {
   }
 };
 
-/**
- * Uploads a local file to Cloudinary, forcing chunked upload (upload_large)
- * for all video files and large images. Ensures proper promise resolution.
- * * @param {string} localFilePath - The temporary path of the file saved by Multer.
- * @param {string} folderPath - The desired folder path in Cloudinary.
- * @returns {Promise<object | null>} The Cloudinary response object or null on failure.
- */
 export const uploadOnCloudinary = async (localFilePath, folderPath) => {
   if (!localFilePath) return null;
 
-  const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+  const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
   const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
 
@@ -52,7 +41,9 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
       console.error(
-        `[Cloudinary] File size (${fileSize} bytes) exceeds the maximum allowed limit of 500MB. Upload aborted.`
+        `[Cloudinary] File size (${fileSize} bytes) exceeds the maximum allowed limit of ${
+          MAX_FILE_SIZE_BYTES / (1024 * 1024)
+        }MB on this plan. Upload aborted.`
       );
       await safelyUnlink(localFilePath);
       return null;
@@ -114,11 +105,6 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
   }
 };
 
-/**
- * Deletes a file from Cloudinary using its public ID.
- * @param {string} publicId - The public ID of the resource to delete.
- * @returns {Promise<object | null>} The Cloudinary result object or null on failure.
- */
 export const deleteFromCloudinary = async (publicId) => {
   if (!publicId) return null;
 

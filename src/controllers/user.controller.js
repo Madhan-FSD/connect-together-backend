@@ -16,48 +16,50 @@ import {
 export const getDashboard = async (req, res) => {
   try {
     const userId = req.userId;
-    const role = req.role;
-    let dashboardData;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid User ID format." });
     }
 
+    const user = await User.findById(userId, { role: 1 }).lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const role = (user.role || "NORMAL_USER").toUpperCase();
+    let dashboardData;
+
     if (role === "PARENT") {
       dashboardData = await getComprehensiveDashboardData(userId);
-      if (!dashboardData) {
+      if (!dashboardData)
         return res
           .status(404)
           .json({ message: "Parent dashboard data not found." });
-      }
       return res.status(200).json(dashboardData);
-    } else if (role === "NORMAL_USER") {
-      dashboardData = await getNormalUserDashboardData(userId);
+    }
 
-      if (!dashboardData) {
+    if (role === "NORMAL_USER") {
+      dashboardData = await getNormalUserDashboardData(userId);
+      if (!dashboardData)
         return res
           .status(404)
           .json({ message: "Normal User data could not be retrieved." });
-      }
-
       return res.status(200).json(dashboardData);
-    } else if (role === "CHILD") {
-      dashboardData = await getChildDashboardData(userId);
+    }
 
-      if (!dashboardData) {
+    if (role === "CHILD") {
+      dashboardData = await getChildDashboardData(userId);
+      if (!dashboardData)
         return res
           .status(404)
           .json({ message: "Child User data could not be retrieved." });
-      }
-
       return res.status(200).json(dashboardData);
-    } else {
-      // Handles unhandled roles
-      return res.status(200).json({
-        message: `Dashboard logic is not yet defined for the ${role} role.`,
-        role,
-      });
     }
+
+    return res.status(200).json({
+      message: `Dashboard logic is not yet defined for the ${role} role.`,
+      role,
+    });
   } catch (error) {
     console.error("Error fetching dashboard:", error);
     res.status(500).json({ message: "Failed to retrieve dashboard data." });
@@ -66,7 +68,7 @@ export const getDashboard = async (req, res) => {
 
 export const updateChildPermission = async (req, res) => {
   try {
-    if (req.role !== "PARENT")
+    if (req.role === "CHILD")
       return res
         .status(403)
         .json({ message: "Only parents can update permissions." });
@@ -133,21 +135,24 @@ export const updateChildPermission = async (req, res) => {
  */
 export const addChild = async (req, res) => {
   try {
-    if (req.role !== "PARENT")
+    if (req.role === "CHILD") {
       return res.status(403).json({ error: "Only parents can add children." });
+    }
 
     const parentId = req.userId;
-
     const { firstName, lastName, dob, gender, accessCode } = req.body;
 
-    if (!firstName || !lastName || !dob || !accessCode)
+    if (!firstName || !lastName || !dob || !accessCode) {
       return res.status(400).json({
         error:
           "First Name, Last Name, Date of Birth (dob), and access code are required.",
       });
+    }
 
     const parent = await User.findById(parentId);
-    if (!parent) return res.status(404).json({ error: "Parent not found." });
+    if (!parent) {
+      return res.status(404).json({ error: "Parent not found." });
+    }
 
     const newChild = {
       firstName,
@@ -158,12 +163,30 @@ export const addChild = async (req, res) => {
     };
 
     parent.children.push(newChild);
-    await parent.save();
 
+    let newToken = null;
+    let roleJustUpgraded = false;
+
+    if (parent.role === "NORMAL_USER") {
+      parent.role = "PARENT";
+      roleJustUpgraded = true;
+    }
+
+    await parent.save();
     const savedChild = parent.children[parent.children.length - 1];
 
-    res.status(201).json({
-      message: "Child successfully added.",
+    if (roleJustUpgraded) {
+      newToken = jwt.sign(
+        { id: parent._id, role: parent.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+    }
+
+    const responsePayload = {
+      message: roleJustUpgraded
+        ? "Child successfully added and role updated to PARENT."
+        : "Child successfully added.",
       child: {
         id: savedChild._id,
         firstName: savedChild.firstName,
@@ -173,10 +196,16 @@ export const addChild = async (req, res) => {
         age: calculateAge(savedChild.dob),
         permissions: savedChild.permissions,
       },
-    });
+    };
+
+    if (newToken) responsePayload.token = newToken;
+
+    return res.status(201).json(responsePayload);
   } catch (error) {
     console.error("Error adding child:", error);
-    res.status(500).json({ error: "Server error during child creation." });
+    return res
+      .status(500)
+      .json({ error: "Server error during child creation." });
   }
 };
 
