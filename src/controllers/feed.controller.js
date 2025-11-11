@@ -47,7 +47,7 @@ export const getPersonalizedFeed = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("ownerId", "name email avatarUrl")
+      .populate("ownerId", "firstName lastName email avatar")
       .populate("channelId", "name handle avatarUrl")
       .lean();
 
@@ -105,7 +105,7 @@ export const getExploreFeed = async (req, res) => {
       .sort({ createdAt: -1, likeCount: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("ownerId", "name email avatarUrl")
+      .populate("ownerId", "firstName lastName email avatar")
       .lean();
 
     const totalPosts = await Post.countDocuments(query);
@@ -140,11 +140,22 @@ export const getTrendingPosts = async (req, res) => {
     })
       .sort({ likeCount: -1, commentsCount: -1 })
       .limit(limit)
-      .populate("ownerId", "name email avatarUrl")
-      .populate("channelId", "name handle avatarUrl")
+      .populate({
+        path: "ownerId",
+        select: "firstName lastName email avatar",
+      })
+      .populate({
+        path: "channelId",
+        select: "name handle avatarUrl",
+      })
       .lean();
 
-    return res.status(200).json({ posts });
+    const postsWithExtras = posts.map((post) => ({
+      ...post,
+      isTrending: true,
+    }));
+
+    return res.status(200).json({ posts: postsWithExtras });
   } catch (error) {
     console.error("Error fetching trending posts:", error);
     return res.status(500).json({ error: "Failed to fetch trending posts." });

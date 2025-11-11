@@ -230,50 +230,58 @@ export const getChildDetails = async (req, res) => {
       return res.status(400).json({ message: "Invalid ID format." });
     }
 
+    const parentObjectId = new mongoose.Types.ObjectId(parentId);
+    const childObjectId = new mongoose.Types.ObjectId(childId);
+
     const user = await User.findOne(
       {
-        _id: new mongoose.Types.ObjectId(parentId),
-        "children._id": new mongoose.Types.ObjectId(childId),
+        _id: parentObjectId,
+        "children._id": childObjectId,
       },
       {
-        children: {
-          $elemMatch: { _id: new mongoose.Types.ObjectId(childId) },
-          accessCodeHash: 0,
-        },
+        children: { $elemMatch: { _id: childObjectId } },
       }
     ).lean();
 
-    if (!user || !user.children?.length)
+    if (!user || !Array.isArray(user.children) || user.children.length === 0) {
       return res.status(404).json({ message: "Parent or Child not found." });
+    }
 
     const child = user.children[0];
+
+    if (!child._id || child._id.toString() !== childObjectId.toString()) {
+      return res.status(404).json({ message: "Child not found." });
+    }
+
+    if (child.accessCodeHash) delete child.accessCodeHash;
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const activityLog = await ActivityLog.find({
-      parentId,
-      childId,
+      parentId: parentObjectId,
+      childId: childObjectId,
       timestamp: { $gte: thirtyDaysAgo },
     })
       .sort({ timestamp: -1 })
       .limit(50)
       .lean();
 
-    res.status(200).json({
+    return res.status(200).json({
       childProfile: {
-        id: child._id,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        gender: child.gender,
-        dob: child.dob,
-        age: calculateAge(child.dob),
-        addresses: child.addresses,
-        permissions: child.permissions,
+        id: child._id.toString(),
+        firstName: child.firstName || null,
+        lastName: child.lastName || null,
+        gender: child.gender || null,
+        dob: child.dob || null,
+        age: child.dob ? calculateAge(child.dob) : null,
+        addresses: child.addresses || [],
+        permissions: child.permissions || {},
       },
       activityLog,
     });
   } catch (error) {
     console.error("Error fetching child details:", error);
-    res.status(500).json({ message: "Failed to fetch child details." });
+    return res.status(500).json({ message: "Failed to fetch child details." });
   }
 };

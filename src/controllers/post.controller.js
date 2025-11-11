@@ -351,7 +351,7 @@ export const addComment = async (req, res) => {
   const userId = req.userId;
   const { content } = req.body;
 
-  if (!content)
+  if (!content?.trim())
     return res.status(400).json({ error: "Comment content cannot be empty." });
 
   try {
@@ -360,18 +360,40 @@ export const addComment = async (req, res) => {
 
     const newComment = await Comment.create({
       post: postId,
-      owner: userId,
-      content: content,
+      ownerId: userId, // ✅ corrected field
+      content,
     });
 
     post.commentsCount += 1;
     await post.save();
 
-    return res
-      .status(201)
-      .json({ message: "Comment added successfully.", comment: newComment });
+    const populatedComment = await newComment.populate(
+      "ownerId",
+      "firstName lastName email avatar"
+    );
+
+    return res.status(201).json({
+      message: "Comment added successfully.",
+      comment: populatedComment,
+    });
   } catch (error) {
+    console.error("Add comment error:", error);
     return res.status(500).json({ error: "Failed to add comment." });
+  }
+};
+
+export const getComments = async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    const comments = await Comment.find({ post: postId })
+      .sort({ createdAt: -1 })
+      .populate("ownerId", "firstName lastName email avatar");
+
+    return res.status(200).json({ comments });
+  } catch (error) {
+    console.error("Fetch comments error:", error);
+    return res.status(500).json({ error: "Failed to fetch comments." });
   }
 };
 
@@ -387,7 +409,7 @@ export const deleteComment = async (req, res) => {
       "ownerId commentsCount"
     );
 
-    const isOwner = comment.owner.toString() === userId.toString();
+    const isOwner = comment.ownerId.toString() === userId.toString();
     const isPostOwner = post.ownerId.toString() === userId.toString();
 
     if (!isOwner && !isPostOwner) {
@@ -403,61 +425,7 @@ export const deleteComment = async (req, res) => {
 
     return res.status(200).json({ message: "Comment deleted successfully." });
   } catch (error) {
+    console.error("Delete comment error:", error);
     return res.status(500).json({ error: "Failed to delete comment." });
-  }
-};
-
-export const toggleLike = async (req, res) => {
-  const { postId } = req.params;
-  const userId = req.userId;
-
-  if (!postId) {
-    return res.status(400).json({ error: "Post ID is required." });
-  }
-
-  try {
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ error: "Post not found." });
-    }
-
-    const existingLike = await Like.findOne({
-      post: postId,
-      likedBy: userId,
-    });
-
-    let message;
-    let isLiked;
-
-    if (existingLike) {
-      await existingLike.deleteOne();
-      isLiked = false;
-      message = "Post unliked successfully.";
-    } else {
-      await Like.create({
-        post: postId,
-        likedBy: userId,
-      });
-      isLiked = true;
-      message = "Post liked successfully.";
-    }
-
-    const totalLikes = await Like.countDocuments({ post: postId });
-    post.likeCount = totalLikes;
-    await post.save();
-
-    return res.status(200).json({
-      message,
-      postId,
-      isLiked, // Final state
-      likeCount: totalLikes,
-    });
-  } catch (error) {
-    console.error("Error toggling like:", error);
-
-    return res.status(500).json({
-      error: "Failed to toggle like on post.",
-      details: error.message,
-    });
   }
 };

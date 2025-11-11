@@ -7,7 +7,9 @@ import {
   getPostDetails,
   updatePost,
   deletePost,
-  toggleLike,
+  addComment,
+  deleteComment,
+  getComments,
 } from "../controllers/post.controller.js";
 
 const router = express.Router();
@@ -18,9 +20,10 @@ router.post("/profile", upload.single("media"), createPost);
 router.post("/channel", upload.single("media"), createPost);
 
 router.get("/feed/:targetId", getPosts);
-
 router.route("/:postId").get(getPostDetails).put(updatePost).delete(deletePost);
 
-router.post("/:postId/like", toggleLike);
+router.post("/:postId/comments", addComment);
+router.get("/:postId/comments", getComments);
+router.delete("/comments/:commentId", deleteComment);
 
 export default router;

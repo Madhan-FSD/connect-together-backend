@@ -38,12 +38,7 @@ const videoSchema = new mongoose.Schema(
       },
     },
 
-    parentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: false,
-    },
-
+    parentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     title: { type: String, required: true, trim: true, maxLength: 100 },
     duration: { type: Number, required: true, min: 1 },
     publicId: { type: String, required: true, unique: true },
@@ -65,11 +60,27 @@ const videoSchema = new mongoose.Schema(
       default: "LIVE",
       required: true,
     },
+
+    reactionCounts: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
+    totalReactions: { type: Number, default: 0 },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
+
+videoSchema.post("findOneAndDelete", async function (doc) {
+  if (doc) {
+    try {
+      const Reaction = (await import("../models/reaction.model.js")).default;
+      await Reaction.deleteMany({ targetType: "Video", targetId: doc._id });
+    } catch (err) {
+      console.error("Cleanup reactions for Video failed:", err);
+    }
+  }
+});
 
 const Video = mongoose.model("Video", videoSchema);
 export default Video;

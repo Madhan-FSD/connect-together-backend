@@ -18,6 +18,7 @@ import followersRoutes from "./src/routes/followers.routes.js";
 import feedsRoutes from "./src/routes/feed.routes.js";
 import followingRoutes from "./src/routes/following.routes.js";
 import gameReportsRoutes from "./src/routes/game.reports.routes.js";
+import reactionRoutes from "./src/routes/reaction.routes.js";
 
 const app = express();
 app.use(cors());
@@ -58,3 +59,4 @@ app.use("/api/feeds", feedsRoutes);
 app.use("/api/followers", followersRoutes);
 app.use("/api/following", followingRoutes);
 app.use("/api/reports", gameReportsRoutes);
+app.use("/api/reactions", reactionRoutes);
