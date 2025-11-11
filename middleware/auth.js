@@ -9,11 +9,13 @@ exports.isAuthenticated = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     if (!decoded?.id) {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
 
     const user = await USER.findById(decoded.id).select("-password");
+
     if (!user)
       return res
         .status(404)

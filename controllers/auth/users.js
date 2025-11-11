@@ -187,7 +187,7 @@ exports.resetPassword = async (req, res) => {
 
 exports.profile = async (req, res) => {
   try {
-    const user = await USER.findById(req.user._id).lean();
+    const user = await USER.findById(req.user.id).lean();
 
     if (!user) {
       return res
@@ -258,18 +258,21 @@ exports.profile = async (req, res) => {
 
 exports.editProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const updateData = { ...req.body };
 
     if (updateData.email) delete updateData.email;
 
     const existingUser = await USER.findById(userId);
+    if (!existingUser) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
 
     if (updateData.phone && updateData.phone === existingUser.phone) {
       delete updateData.phone;
-    }
-
-    if (updateData.phone) {
+    } else if (updateData.phone) {
       const duplicate = await USER.findOne({
         phone: updateData.phone,
         _id: { $ne: userId },

@@ -1,5 +1,15 @@
 const mongoose = require("mongoose");
 
+const addressSchema = new mongoose.Schema({
+  address: { type: String, required: true },
+  pinCode: { type: Number, required: true },
+  countryName: { type: String, required: true },
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  phone: { type: Number },
+  alternativeNumber: { type: Number },
+});
+
 // Child schema (same as yours)
 const ChildSchema = new mongoose.Schema(
   {
@@ -67,6 +77,7 @@ const UserSchema = new mongoose.Schema(
       default: "local",
     },
     photo: { type: String },
+    address: addressSchema,
   },
   { timestamps: true },
 );
