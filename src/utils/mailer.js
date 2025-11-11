@@ -26,36 +26,27 @@ const getZohoAccessToken = async () => {
   }
 };
 
-const token = await getZohoAccessToken();
-console.log("Refreshed Zoho Token:", token);
-
 const sendEmail = async (options) => {
   try {
     const mailGenerator = new Mailgen({
-      theme: "cerberus",
+      theme: "default",
       product: {
-        name: "",
+        name: "PeersPlus",
         link: "https://peersplus.com",
         logo: `${process.env.CLOUDINARY_USER_NAME}/image/upload/v1762842352/peers-plus-logo_kccu0r.png`,
-        logoHeight: "200px",
-
+        logoHeight: "300px",
         styles: {
           header: {
             background: "#FFFFFF",
           },
+          body: { background: "#FFFFFF" },
         },
-
-        logoWidth: "500px",
       },
     });
 
-    const emailTextual = mailGenerator.generatePlaintext(
-      options.mailgenContent
-    );
     const emailHtml = mailGenerator.generate(options.mailgenContent);
 
     const accessToken = await getZohoAccessToken();
-
     const url = `${process.env.ZOHO_API_DOMAIN}/accounts/${process.env.ZOHO_ACCOUNT_ID}/messages`;
 
     const mailData = {
@@ -75,10 +66,15 @@ const sendEmail = async (options) => {
     });
 
     console.log(`Email successfully sent to ${options.email}`);
-    return response.data;
+    return { success: true, data: response.data };
   } catch (error) {
     console.error("Email service failed:");
     console.error(error.response?.data || error.message);
+
+    return {
+      success: false,
+      error: error.response?.data || error.message,
+    };
   }
 };
 
