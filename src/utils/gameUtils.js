@@ -1,5 +1,5 @@
 import ChildWallet from "../models/childwallet.model.js";
-import DailyActivitySummary from "../models/dailyActivitySummary.model.js";
+import DailyActivitySummary from "../models/dailyactivitysummary.model.js";
 
 const getStartOfDay = (date) => {
   const d = new Date(date);
