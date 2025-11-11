@@ -439,32 +439,116 @@ export const getActivityInsights = async (req, res) => {
     }
 
     const INSIGHT_TYPE = "ACTIVITY_SUMMARY";
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const parentUser = await User.findOne({ "children._id": childId }).lean();
+    if (!parentUser) {
+      return res
+        .status(404)
+        .json({ error: "Child or parent user not found for insights." });
+    }
+
+    const child = parentUser.children.find(
+      (c) => c._id.toString() === childId.toString()
+    );
+    if (!child) {
+      return res.status(404).json({ error: "Child not found." });
+    }
+
+    const hasData =
+      (child.activities && child.activities.length > 0) ||
+      (child.skills && child.skills.length > 0) ||
+      (child.projects && child.projects.length > 0) ||
+      (child.interests && child.interests.length > 0) ||
+      (child.achievements && child.achievements.length > 0) ||
+      (child.educations && child.educations.length > 0);
+
+    if (!hasData) {
+      return res.status(200).json({
+        summary: null,
+        patterns: [],
+        recommendations: [],
+        message: "Not enough data available to generate AI insights.",
+      });
+    }
 
     const cachedInsight = await AIInsight.findOne({
       userId: childId,
       insightType: INSIGHT_TYPE,
-      generatedAt: { $gte: oneDayAgo },
-    }).lean();
+    })
+      .sort({ generatedAt: -1 })
+      .lean();
 
-    if (cachedInsight) {
+    const lastUpdated = new Date(
+      Math.max(
+        new Date(child.updatedAt || 0),
+        ...[
+          ...(child.activities || []).map((a) => new Date(a.updatedAt || 0)),
+          ...(child.skills || []).map((s) => new Date(s.updatedAt || 0)),
+          ...(child.achievements || []).map((a) => new Date(a.updatedAt || 0)),
+          ...(child.projects || []).map((p) => new Date(p.updatedAt || 0)),
+          ...(child.educations || []).map((e) => new Date(e.updatedAt || 0)),
+          ...(child.interests || []).map((i) => new Date(i.updatedAt || 0)),
+        ]
+      )
+    );
+
+    const isInsightStale =
+      !cachedInsight ||
+      new Date(cachedInsight.generatedAt) < lastUpdated ||
+      new Date(cachedInsight.generatedAt) <
+        new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    if (!isInsightStale) {
       return res.status(200).json({
         ...cachedInsight.data,
-        message: "Data from cache, generated less than 24 hours ago.",
+        message: "Data from cache, no updates detected.",
       });
     }
 
-    let isChild = true;
-    let parentUser = await User.findOne({ "children._id": childId }).lean();
-    if (!parentUser) {
-      return res
-        .status(404)
-        .json({ error: "Child or User not found for insights." });
+    const contextData = {
+      firstName: child.firstName,
+      lastName: child.lastName,
+      gender: child.gender,
+      age: calculateAge(child.dob),
+      about: child.about,
+      activities: child.activities,
+      skills: child.skills,
+      interests: child.interests,
+      projects: child.projects,
+      achievements: child.achievements,
+      educations: child.educations,
+    };
+
+    const totalItems =
+      (contextData.activities?.length || 0) +
+      (contextData.skills?.length || 0) +
+      (contextData.projects?.length || 0) +
+      (contextData.interests?.length || 0) +
+      (contextData.achievements?.length || 0);
+    if (totalItems < 2) {
+      return res.status(200).json({
+        summary: null,
+        patterns: [],
+        recommendations: [],
+        message: "Insufficient child data to generate insights.",
+      });
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const prompt = `Generate AI insights for a child's activity patterns based on their profile and assumed activity logs. Provide a summary, a list of patterns (at least 3), and specific recommendations (at least 3).
-    Respond **only** in JSON: { "summary": "...", "patterns": [{ "name": "...", "description": "..." }], "recommendations": [{ "title": "...", "reason": "..." }] }`;
+    const prompt = `
+You are an educational child behavior analyst. Based ONLY on the provided child data (no assumptions), 
+summarize behavior and learning patterns. 
+If data is insufficient, say "Not enough data" (in summary). 
+Return JSON in this structure:
+{
+  "summary": "...",
+  "patterns": [{ "name": "...", "description": "..." }],
+  "recommendations": [{ "title": "...", "reason": "..." }]
+}
+
+Child Data:
+${JSON.stringify(contextData, null, 2)}
+`;
 
     const result = await model.generateContent(prompt);
     const textResponse = result.response?.text?.() || "";
@@ -473,28 +557,37 @@ export const getActivityInsights = async (req, res) => {
     try {
       data = JSON.parse(cleanJson(textResponse));
     } catch (err) {
-      console.warn("AI JSON parse failed, returning fallback data.");
+      console.warn("AI JSON parse failed, using fallback data.");
       data = {
-        summary:
-          "Could not generate detailed insights due to AI processing error.",
+        summary: "Not enough structured data to generate insights.",
         patterns: [],
         recommendations: [],
       };
+    }
+
+    if (
+      !data.summary ||
+      data.summary.toLowerCase().includes("not enough data")
+    ) {
+      return res.status(200).json({
+        summary: null,
+        patterns: [],
+        recommendations: [],
+        message: "Not enough data for AI to analyze.",
+      });
     }
 
     await AIInsight.create({
       userId: childId,
       role: "CHILD",
       insightType: INSIGHT_TYPE,
-      data: data,
+      data,
       generatedAt: new Date(),
-    }).catch((storeErr) =>
-      console.error("Failed to store AI Activity Insight:", storeErr)
-    );
+    });
 
     res.status(200).json({
       ...data,
-      message: "New insights generated and stored.",
+      message: "New AI insights generated successfully.",
     });
   } catch (error) {
     console.error("Error generating activity insights:", error);
