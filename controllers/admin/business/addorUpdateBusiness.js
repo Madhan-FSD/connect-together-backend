@@ -1,9 +1,10 @@
 const USER = require("../../../models/auth/user");
+const BUSINESS = require("../../../models/business/business");
 
 exports.addOrUpdateBusiness = async (req, res) => {
   try {
     if (req.user.userType !== "admin") {
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
         message: "Access denied - only admin can add or update business data",
       });
@@ -31,29 +32,38 @@ exports.addOrUpdateBusiness = async (req, res) => {
     }
 
     const businessData = {
+      userId,
       businessName,
       businessCode,
-      buisnessAbout,
       addressBusiness,
+      buisnessAbout,
       busineessLogo: businessLogo.buffer,
       busineessBanner: businessBanner.buffer,
       contentType: businessLogo.mimetype,
       fileSizeKB: Math.round(businessLogo.size / 1024),
     };
 
-    const updateUser = await USER.findByIdAndUpdate(
-      userId,
-      { $set: { business: businessData } },
-      { new: true, runValidators: true },
-    ).select("-password");
+    const existingBusiness = await BUSINESS.findOne({ userId });
 
-    return res.status(200).json({
+    let savedBusiness;
+    if (existingBusiness) {
+      savedBusiness = await BUSINESS.findOneAndUpdate(
+        { userId },
+        { $set: businessData },
+        { new: true },
+      );
+    } else {
+      const newBusiness = new BUSINESS(businessData);
+      savedBusiness = await newBusiness.save();
+    }
+
+    res.status(200).json({
       success: true,
       message: "Business information saved successfully",
-      business: updateUser.business,
+      business: savedBusiness,
     });
   } catch (error) {
-    console.log("Business Add Error:", error);
+    console.error("Business Add Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -64,15 +74,15 @@ exports.addOrUpdateBusiness = async (req, res) => {
 
 exports.getBusiness = async (req, res) => {
   try {
-    const user = await USER.findById(req.user.id).select("business");
+    const userId = req.user.id;
+    const business = await BUSINESS.findOne({ userId });
 
-    if (!user.business) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No business data found" });
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        message: "No business data found for this user",
+      });
     }
-
-    const { business } = user;
 
     const logoBase64 = business.busineessLogo
       ? `data:${business.contentType};base64,${business.busineessLogo.toString(
@@ -96,7 +106,7 @@ exports.getBusiness = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Get Business Error:", error);
+    console.error("Get Business Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

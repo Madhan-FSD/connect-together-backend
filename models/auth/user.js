@@ -1,16 +1,5 @@
 const mongoose = require("mongoose");
 
-const businessSchema = new mongoose.Schema({
-  businessName: { type: String, required: true },
-  businessCode: { type: String, required: true },
-  contentType: { type: String },
-  fileSizeKB: { type: Number },
-  addressBusiness: { type: String, required: true },
-  buisnessAbout: { type: String, required: true },
-  busineessLogo: { type: Buffer },
-  busineessBanner: { type: Buffer },
-});
-
 // Child schema (same as yours)
 const ChildSchema = new mongoose.Schema(
   {
@@ -78,7 +67,6 @@ const UserSchema = new mongoose.Schema(
       default: "local",
     },
     photo: { type: String },
-    business: businessSchema,
   },
   { timestamps: true },
 );
