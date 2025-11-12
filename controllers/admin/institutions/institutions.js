@@ -2,6 +2,7 @@ const Institution = require("../../../models/Institution/Institution");
 const Enquiry = require("../../../models/Institution/Enquiry");
 const getEnquiryEmailTemplate = require("../../../templates/enquiryTemplate");
 const nodemailer = require("nodemailer");
+const Mailgen = require("mailgen");
 
 exports.createInstitution = async (req, res) => {
   try {
@@ -220,5 +221,114 @@ exports.listEnquiries = async (req, res) => {
   } catch (err) {
     console.log("List Enquiries Error:", err);
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.updateEnquiryStatus = async (req, res) => {
+  try {
+    if (req.user.userType !== "admin") {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const { enquiryId, status } = req.body;
+
+    const allowedStatuses = ["pending", "accepted", "rejected", "closed"];
+    if (!allowedStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid status value" });
+    }
+
+    const enquiry = await Enquiry.findById(enquiryId)
+      .populate("institutionId", "name contactEmail")
+      .populate("userId", "firstName lastName email")
+      .lean();
+
+    if (!enquiry) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Enquiry not found" });
+    }
+
+    const updatedEnquiry = await Enquiry.findByIdAndUpdate(
+      enquiryId,
+      { status },
+      { new: true },
+    );
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.NODEMALLER_EMAIL,
+        pass: process.env.NODEMALLER_PASSWORD,
+      },
+    });
+
+    const mailGenerator = new Mailgen({
+      theme: "default",
+      product: {
+        name: "Peer Plus",
+        link: "https://peerplus.com",
+        copyright: "© 2025 Peer Plus. All rights reserved.",
+      },
+    });
+
+    const statusMessage =
+      status === "accepted"
+        ? "Your enquiry has been accepted! 🎉 We’ll reach out to you soon."
+        : status === "rejected"
+        ? "Unfortunately, your enquiry has been rejected."
+        : "Your enquiry is under review.";
+
+    const emailBody = {
+      body: {
+        name: `${enquiry.userId.firstName} ${enquiry.userId.lastName}`,
+        intro: `Status update for your enquiry to <b>${enquiry.institutionId.name}</b>`,
+        table: {
+          data: [
+            {
+              Institution: enquiry.institutionId.name,
+              "Your Message": enquiry.message || "N/A",
+              "Current Status": status.toUpperCase(),
+            },
+          ],
+        },
+        action: {
+          instructions: statusMessage,
+          button: {
+            color:
+              status === "accepted"
+                ? "#22BC66"
+                : status === "rejected"
+                ? "#E53E3E"
+                : "#667EEA",
+            text: "View Details",
+            link: "https://peerplus.com/user/enquiries",
+          },
+        },
+        outro: "Thank you for using Peer Plus. We appreciate your interest!",
+      },
+    };
+
+    const emailTemplate = mailGenerator.generate(emailBody);
+
+    await transporter.sendMail({
+      from: process.env.NODEMALLER_EMAIL,
+      to: enquiry.userId.email,
+      subject: `Your Enquiry Status: ${status.toUpperCase()}`,
+      html: emailTemplate,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Enquiry status updated successfully",
+      enquiry: updatedEnquiry,
+    });
+  } catch (err) {
+    console.error("Update Enquiry Status Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };

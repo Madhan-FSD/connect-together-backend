@@ -32,6 +32,12 @@ router.get(
   isAdmin,
   AdminInstitutions.listEnquiries,
 );
+router.put(
+  "/enquiries/update-status",
+  isAuthenticated,
+  isAdmin,
+  AdminInstitutions.updateEnquiryStatus,
+);
 router.get("/users-list", isAuthenticated, isAdmin, Users.userList);
 
 router.post(
