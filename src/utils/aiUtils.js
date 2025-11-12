@@ -235,3 +235,21 @@ export function startAiTasks() {
     );
   });
 }
+
+export const cleanJson = (text) => {
+  let cleanedText = text.replace(/```(json|typescript|javascript|)\s*/gis, "");
+  cleanedText = cleanedText.replace(/```\s*$/gis, "");
+
+  const firstCharIndex = cleanedText.search(/[{[]/);
+  const lastCharIndex = cleanedText.search(/[}\]]\s*$/);
+
+  if (
+    firstCharIndex !== -1 &&
+    lastCharIndex !== -1 &&
+    lastCharIndex > firstCharIndex
+  ) {
+    cleanedText = cleanedText.substring(firstCharIndex, lastCharIndex + 1);
+  }
+
+  return cleanedText.trim();
+};

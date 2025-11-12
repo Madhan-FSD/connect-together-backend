@@ -8,6 +8,11 @@ const getRole = (user) => {
   return user.children && user.children.length > 0 ? "PARENT" : "NORMAL_USER";
 };
 
+const getFullName = (userOrChild) => {
+  if (!userOrChild) return "";
+  return `${userOrChild.firstName || ""} ${userOrChild.lastName || ""}`.trim();
+};
+
 export const register = async (req, res) => {
   try {
     const { email } = req.body;
@@ -120,7 +125,8 @@ export const loginEmailCheck = async (req, res) => {
 
     const children = user.children.map((c) => ({
       id: c._id,
-      name: c.name,
+      firstName: c.firstName,
+      lastName: c.lastName,
       age: c.age,
     }));
 
@@ -234,15 +240,18 @@ export const login = async (req, res) => {
 
     const childrenData = user.children.map((child) => ({
       id: child._id,
-      name: child.name,
+      firstName: child.firstName,
+      lastName: child.lastName,
       age: child.age,
       permissions: child.permissions,
     }));
 
+    const fullName = getFullName(user);
+
     res.json({
       token,
       userId: user._id,
-      name: user.name,
+      name: fullName,
       role,
       children: childrenData,
     });
@@ -254,18 +263,16 @@ export const login = async (req, res) => {
 
 export const loginChild = async (req, res) => {
   try {
-    const { email, childName, accessCode } = req.body;
-    if (!email || !childName || !accessCode)
+    const { email, childId, accessCode } = req.body;
+    if (!email || !childId || !accessCode)
       return res
         .status(400)
-        .json({ error: "Email, child name, and access code required." });
+        .json({ error: "Email, child ID, and access code required." });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: "Invalid credentials." });
 
-    const child = user.children.find(
-      (c) => c.name.toLowerCase() === childName.toLowerCase()
-    );
+    const child = user.children.id(childId);
     if (!child) return res.status(400).json({ error: "Invalid credentials." });
 
     const isValid = await user.verifyChildAccessCode(child, accessCode);
@@ -282,7 +289,8 @@ export const loginChild = async (req, res) => {
       token,
       child: {
         id: child._id,
-        name: child.name,
+        firstName: child.firstName,
+        lastName: child.lastName,
         permissions: child.permissions,
       },
       role: "CHILD",

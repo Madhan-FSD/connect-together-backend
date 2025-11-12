@@ -1,5 +1,6 @@
 import ChildWallet from "../models/childwallet.model.js";
 import DailyActivitySummary from "../models/dailyactivitysummary.model.js";
+import { User } from "../models/user.model.js";
 
 const getStartOfDay = (date) => {
   const d = new Date(date);
@@ -8,6 +9,7 @@ const getStartOfDay = (date) => {
 };
 
 export const updateDailySummaryAndWallet = async (
+  parentId,
   childId,
   sessionId,
   coinsEarned,
@@ -41,5 +43,15 @@ export const updateDailySummaryAndWallet = async (
       lastUpdate: new Date(),
     },
     { upsert: true }
+  );
+
+  await User.updateOne(
+    { _id: parentId, "children._id": childId },
+    {
+      $inc: {
+        "children.$.totalGameScore": score,
+        "children.$.walletBalance": coinsEarned,
+      },
+    }
   );
 };

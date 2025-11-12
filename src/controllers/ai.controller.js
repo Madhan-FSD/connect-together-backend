@@ -2,15 +2,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { User } from "../models/user.model.js";
 import AIInsight from "../models/aiinsights.model.js";
+import { cleanJson } from "../utils/aiUtils.js";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const cleanJson = (text) =>
-  text
-    .replace(/```json\n?/g, "")
-    .replace(/```\n?/g, "")
-    .trim();
 
 export const chatWithAI = async (req, res) => {
   try {
@@ -203,14 +199,39 @@ export const analyzeSentiment = async (req, res) => {
       return res.status(400).json({ error: "Content is required." });
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const prompt = `Analyze the sentiment of: "${content}".
-    Respond in JSON: { "sentiment": "positive/negative/neutral", "confidence": %, "analysis": "..." }`;
 
-    const result = await model.generateContent(prompt);
-    const data = JSON.parse(cleanJson(result.response.text()));
+    const prompt = `Analyze the emotional tone and sentiment of the following text: "${content}".
+    Determine if the overall sentiment is 'positive', 'negative', or 'neutral'.`;
+
+    const result = await model.generateContent({
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            sentiment: {
+              type: "string",
+              description:
+                "The primary sentiment, must be 'positive', 'negative', or 'neutral'.",
+              enum: ["positive", "negative", "neutral"],
+            },
+            analysis: {
+              type: "string",
+              description:
+                "A detailed explanation of why that sentiment was chosen, citing specific words or phrases.",
+            },
+          },
+          required: ["sentiment", "analysis"],
+        },
+      },
+    });
+
+    const data = JSON.parse(result.response.text);
     res.status(200).json(data);
   } catch (error) {
     console.error("Error analyzing sentiment:", error);
+
     res.status(500).json({ error: "Failed to analyze sentiment." });
   }
 };

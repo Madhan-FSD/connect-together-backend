@@ -14,16 +14,12 @@ const router = express.Router();
  * @prefix /api/users
  */
 
-// Dashboard (role-aware)
 router.get("/dashboard", protect, getDashboard);
 
-// Update a child's permissions (Parent-only)
 router.put("/controls/:childId", protect, updateChildPermission);
 
-// Add a child profile (Parent-only)
 router.post("/child", protect, addChild);
 
-// Get child details & activity (Parent-only)
 router.get("/child/:childId", protect, getChildDetails);
 
 router.get("/insights/:childId", async (req, res) => {

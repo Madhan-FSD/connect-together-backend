@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../middlewares/auth.middleware.js";
+import { protect, protectChild } from "../middlewares/auth.middleware.js";
 import {
   getDailyReport,
   getLeaderboard,
@@ -8,10 +8,10 @@ import {
 
 const router = express.Router();
 
-router.get("/daily/:childId", protect, getDailyReport);
+router.get("/daily/:childId", protectChild, getDailyReport);
 
-router.get("/leaderboard", protect, getLeaderboard);
+router.get("/leaderboard", protectChild, getLeaderboard);
 
-router.get("/wallet/:childId", protect, getChildWallet);
+router.get("/wallet/:childId", protectChild, getChildWallet);
 
 export default router;

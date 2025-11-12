@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { User } from "../models/user.model.js";
+import { User, Child } from "../models/user.model.js";
 import ActivityLog from "../models/activitylog.model.js";
 import { getComprehensiveDashboardData } from "../utils/dataFetcher.js";
 import { permissionKeys } from "../utils/permissionKeys.js";
@@ -21,7 +21,24 @@ export const getDashboard = async (req, res) => {
       return res.status(400).json({ message: "Invalid User ID format." });
     }
 
-    const user = await User.findById(userId, { role: 1 }).lean();
+    let user;
+
+    user = await User.findById(userId, { role: 1 }).lean();
+
+    if (!user) {
+      const parentWithChild = await User.findOne(
+        { "children._id": userId },
+        { "children.$": 1 }
+      ).lean();
+
+      if (parentWithChild && parentWithChild.children?.length) {
+        user = {
+          _id: userId,
+          role: "CHILD",
+        };
+      }
+    }
+
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }

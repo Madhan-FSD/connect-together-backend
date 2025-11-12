@@ -230,6 +230,7 @@ const UserSchema = new mongoose.Schema(
       generatedAt: Date,
     },
     children: [ChildSchema],
+    connectionCount: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
   },
   {

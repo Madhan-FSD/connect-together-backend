@@ -9,6 +9,7 @@ import {
   getConnections,
   getConnectionStatus,
   getSuggestedConnections,
+  blockUser,
 } from "../controllers/connection.controller.js";
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.use(protect);
 router.get("/pending", getPendingRequests);
 router.get("/suggestions", getSuggestedConnections);
 router.post("/request", sendConnectionRequest);
+router.post("/block", blockUser);
 router.get("/:userId", getConnections);
 router.get("/status/:userId", getConnectionStatus);
 router.put("/:connectionId/accept", acceptConnectionRequest);

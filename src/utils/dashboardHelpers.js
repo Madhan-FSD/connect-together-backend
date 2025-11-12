@@ -4,6 +4,23 @@ import ChildChannel from "../models/childchannel.model.js";
 import CuratedChannel from "../models/curatedchannel.model.js";
 import { Post } from "../models/post.model.js";
 import UserChannel from "../models/userchannel.model.js";
+import GameSession from "../models/gamesession.model.js";
+
+export async function getChildProfileSummary(childId) {
+  if (!mongoose.Types.ObjectId.isValid(childId)) return null;
+
+  const childObjectId = new mongoose.Types.ObjectId(childId);
+
+  const parent = await User.findOne(
+    { "children._id": childObjectId },
+    { "children.$": 1 }
+  ).lean();
+
+  if (!parent || !parent.children?.length) return null;
+
+  const childDoc = parent.children[0];
+  return extractChildSummary(childDoc);
+}
 
 export async function getUserProfileSummary(userId) {
   const objectId = mongoose.Types.ObjectId.isValid(userId)
@@ -40,7 +57,7 @@ export async function getUserProfileSummary(userId) {
 function extractChildSummary(childDoc) {
   if (!childDoc) return null;
 
-  const coreDetails = {
+  const coreDetailsAndProfileCounts = {
     _id: childDoc._id,
     firstName: childDoc.firstName,
     lastName: childDoc.lastName,
@@ -48,8 +65,6 @@ function extractChildSummary(childDoc) {
     dob: childDoc.dob,
     about: childDoc.about,
     avatar: childDoc.avatar,
-  };
-  const profileCounts = {
     interestsCount: childDoc.interests?.length || 0,
     skillsCount: childDoc.skills?.length || 0,
     certificationsCount: childDoc.certifications?.length || 0,
@@ -59,9 +74,8 @@ function extractChildSummary(childDoc) {
     activitiesCount: childDoc.activities?.length || 0,
     insightsCount: childDoc.insights?.length || 0,
   };
-  const permissions = childDoc.permissions || {};
 
-  return { ...coreDetails, profileCounts, permissions };
+  return { ...coreDetailsAndProfileCounts };
 }
 
 /**
@@ -114,13 +128,15 @@ export async function getNormalUserDashboardData(userId) {
 }
 
 export async function getChildDashboardData(childId) {
-  const [childSummary, socialActivity] = await Promise.all([
-    getUserProfileSummary(childId),
-    getSocialActivitySummary(childId, "CHILD"),
-  ]);
+  const childSummary = await getChildProfileSummary(childId);
+  const gamesSummary = await getChildGamesSummary(childId);
 
   return childSummary
-    ? { role: "CHILD", ...childSummary, socialActivity }
+    ? {
+        role: "CHILD",
+        ...childSummary,
+        ...gamesSummary,
+      }
     : null;
 }
 
@@ -144,4 +160,34 @@ export async function getComprehensiveDashboardData(parentId) {
     socialActivity: parentSocialActivity,
     children: childrenSummaries,
   };
+}
+
+async function getChildGamesSummary(childId) {
+  try {
+    const sessions = await GameSession.aggregate([
+      { $match: { childId: new mongoose.Types.ObjectId(childId) } },
+      {
+        $group: {
+          _id: null,
+          gamesPlayed: { $sum: 1 },
+          totalCoinsEarned: { $sum: "$coinsEarned" },
+          totalScore: { $sum: "$score" },
+        },
+      },
+    ]);
+
+    if (!sessions.length) {
+      return {
+        gamesPlayed: 0,
+        totalCoinsEarned: 0,
+        totalScore: 0,
+      };
+    }
+
+    const { gamesPlayed, totalCoinsEarned, totalScore } = sessions[0];
+    return { gamesPlayed, totalCoinsEarned, totalScore };
+  } catch (error) {
+    console.error("Error aggregating child game stats:", error);
+    return { gamesPlayed: 0, totalCoinsEarned: 0, totalScore: 0 };
+  }
 }

@@ -35,9 +35,9 @@ const findChildInfo = async (childId, parentId) => {
  */
 export const getDailyReport = asyncHandler(async (req, res) => {
   const { childId } = req.params;
-  const { date } = req.query; // Optional: date in YYYY-MM-DD format
+  const { date } = req.query;
 
-  const child = await findChildInfo(childId, req.userId);
+  const child = await findChildInfo(childId, req.parentId);
 
   const targetDate = date ? new Date(date) : new Date();
   targetDate.setUTCHours(0, 0, 0, 0);
@@ -79,14 +79,42 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
     { $unwind: "$children" },
 
     {
-      $project: {
-        _id: "$children._id",
-        name: "$children.name",
+      $lookup: {
+        from: "dailyactivitysummaries",
+        localField: "children._id",
+        foreignField: "childId",
+        as: "dailySummaries",
+      },
+    },
 
-        score: {
-          $ifNull: ["$children.totalGameScore", 0],
+    {
+      $unwind: {
+        path: "$dailySummaries",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $group: {
+        _id: "$children._id",
+        childName: {
+          $first: {
+            $concat: ["$children.firstName", " ", "$children.lastName"],
+          },
         },
-        parentName: { $concat: ["$firstName", " ", "$lastName"] },
+        parentId: { $first: "$_id" },
+
+        score: { $sum: "$dailySummaries.totalScore" },
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        childId: "$_id",
+        childName: "$childName",
+        parentId: "$parentId",
+        score: "$score",
       },
     },
 

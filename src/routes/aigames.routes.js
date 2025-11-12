@@ -11,6 +11,7 @@ import {
   submitWordMasterAnswers,
   submitMathAnswers,
   submitCodeDetectiveAnswers,
+  getGameReport,
 } from "../controllers/aigames.controller.js";
 
 const router = express.Router();
@@ -38,5 +39,7 @@ router.post(
   protectChild,
   submitCodeDetectiveAnswers
 );
+
+router.get("/report/:sessionId", protectChild, getGameReport);
 
 export default router;
