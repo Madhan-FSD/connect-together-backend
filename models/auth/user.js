@@ -1,15 +1,5 @@
 const mongoose = require("mongoose");
 
-const addressSchema = new mongoose.Schema({
-  address: { type: String, required: true },
-  pinCode: { type: Number, required: true },
-  countryName: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  phone: { type: Number },
-  alternativeNumber: { type: Number },
-});
-
 const businessSchema = new mongoose.Schema({
   businessName: { type: String, required: true },
   businessCode: { type: String, required: true },
@@ -88,7 +78,6 @@ const UserSchema = new mongoose.Schema(
       default: "local",
     },
     photo: { type: String },
-    address: addressSchema,
     business: businessSchema,
   },
   { timestamps: true },

@@ -6,6 +6,7 @@ const sendOTP = require("../../helpers/sendOtpHandler");
 const OTP = require("../../models/auth/otp");
 const jwt = require("jsonwebtoken");
 const USER_PHOTO = require("../../models/photos/photoUsers");
+const ADDRESS = require("../../models/address/address");
 
 exports.signUp = async (req, res) => {
   try {
@@ -195,6 +196,8 @@ exports.profile = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
+    const address = await ADDRESS.findOne({ userId: user._id }).lean();
+
     const userPhoto = await USER_PHOTO.findOne({
       userId: user._id,
       photoType: "user",
@@ -246,29 +249,31 @@ exports.profile = async (req, res) => {
       profile: {
         ...user,
         photo: userPhotoBase64,
+        address: address || null,
       },
     });
   } catch (error) {
     console.error("Profile API Error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
 exports.editProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const updateData = { ...req.body };
+    const { address, ...updateData } = req.body;
 
     if (updateData.email) delete updateData.email;
 
     const existingUser = await USER.findById(userId);
-    if (!existingUser) {
+    if (!existingUser)
       return res
         .status(400)
         .json({ success: false, message: "User not found" });
-    }
 
     if (updateData.phone && updateData.phone === existingUser.phone) {
       delete updateData.phone;
@@ -277,37 +282,49 @@ exports.editProfile = async (req, res) => {
         phone: updateData.phone,
         _id: { $ne: userId },
       });
-      if (duplicate) {
+      if (duplicate)
         return res
           .status(400)
           .json({ success: false, message: "Phone number already exists" });
-      }
     }
 
     if (updateData.password) {
-      const hashPassword = await bcrypt.hash(updateData.password, 10);
-      updateData.password = hashPassword;
+      updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
-    const updatedUser = await USER.findByIdAndUpdate(
-      userId,
-      { $set: updateData },
-      { new: true, runValidators: true, fields: "-password" },
-    );
+    Object.assign(existingUser, updateData);
+    await existingUser.save();
 
-    if (!updatedUser) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
+    let addressDoc;
+    if (address) {
+      const existAddress = await ADDRESS.findOne({ userId });
+
+      if (existAddress) {
+        addressDoc = await ADDRESS.findOneAndUpdate(
+          { userId },
+          { $set: address },
+          { new: true },
+        );
+      } else {
+        addressDoc = new ADDRESS({ ...address, userId });
+        await addressDoc.save();
+      }
+    } else {
+      addressDoc = await ADDRESS.findOne({ userId });
     }
+
+    const mergedProfile = {
+      ...existingUser.toObject(),
+      address: addressDoc ? addressDoc.toObject() : null,
+    };
 
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: updatedUser,
+      user: mergedProfile,
     });
   } catch (error) {
-    console.error("Edit Profile Error:", error);
+    console.log("Edit Profile Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
