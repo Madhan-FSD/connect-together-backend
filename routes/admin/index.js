@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { isAuthenticated, isAdmin } = require("../../middleware/auth");
 const AdminInstitutions = require("../../controllers/admin/institutions/institutions");
-const AdminCourses = require("../../controllers/admin/courses/courses");
 const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
 const multer = require("multer");
@@ -10,7 +9,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 router.post(
-  "/institutions",
+  "/institution/create",
   isAuthenticated,
   isAdmin,
   AdminInstitutions.createInstitution,
@@ -22,9 +21,19 @@ router.get(
   AdminInstitutions.listInstitutions,
 );
 
-router.post("/courses", isAuthenticated, isAdmin, AdminCourses.createCourse);
-
+router.post(
+  "/institutions/enquire",
+  isAuthenticated,
+  AdminInstitutions.enquireInstitution,
+);
+router.get(
+  "/admin/enquiries",
+  isAuthenticated,
+  isAdmin,
+  AdminInstitutions.listEnquiries,
+);
 router.get("/users-list", isAuthenticated, isAdmin, Users.userList);
+
 router.post(
   "/add-businnes-details",
   isAuthenticated,

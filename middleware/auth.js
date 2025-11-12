@@ -26,6 +26,9 @@ exports.isAuthenticated = async (req, res, next) => {
       userId: user.userId,
       userType: user.userType,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
     };
 
     next();
