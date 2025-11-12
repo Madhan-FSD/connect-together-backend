@@ -1,8 +1,8 @@
 const Institution = require("../../../models/Institution/Institution");
 const Enquiry = require("../../../models/Institution/Enquiry");
 const getEnquiryEmailTemplate = require("../../../templates/enquiryTemplate");
+const getEnquiryStatusEmailTemplate = require("../../../templates/getEnquiryStatusEmailTemplate");
 const nodemailer = require("nodemailer");
-const Mailgen = require("mailgen");
 
 exports.createInstitution = async (req, res) => {
   try {
@@ -255,6 +255,14 @@ exports.updateEnquiryStatus = async (req, res) => {
       { status },
       { new: true },
     );
+
+    const emailTemplate = getEnquiryStatusEmailTemplate({
+      userName: `${enquiry.userId.firstName} ${enquiry.userId.lastName}`,
+      institutionName: enquiry.institutionId.name,
+      message: enquiry.message,
+      status,
+    });
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -262,54 +270,6 @@ exports.updateEnquiryStatus = async (req, res) => {
         pass: process.env.NODEMALLER_PASSWORD,
       },
     });
-
-    const mailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "Peer Plus",
-        link: "https://peerplus.com",
-        copyright: "© 2025 Peer Plus. All rights reserved.",
-      },
-    });
-
-    const statusMessage =
-      status === "accepted"
-        ? "Your enquiry has been accepted! 🎉 We’ll reach out to you soon."
-        : status === "rejected"
-        ? "Unfortunately, your enquiry has been rejected."
-        : "Your enquiry is under review.";
-
-    const emailBody = {
-      body: {
-        name: `${enquiry.userId.firstName} ${enquiry.userId.lastName}`,
-        intro: `Status update for your enquiry to <b>${enquiry.institutionId.name}</b>`,
-        table: {
-          data: [
-            {
-              Institution: enquiry.institutionId.name,
-              "Your Message": enquiry.message || "N/A",
-              "Current Status": status.toUpperCase(),
-            },
-          ],
-        },
-        action: {
-          instructions: statusMessage,
-          button: {
-            color:
-              status === "accepted"
-                ? "#22BC66"
-                : status === "rejected"
-                ? "#E53E3E"
-                : "#667EEA",
-            text: "View Details",
-            link: "https://peerplus.com/user/enquiries",
-          },
-        },
-        outro: "Thank you for using Peer Plus. We appreciate your interest!",
-      },
-    };
-
-    const emailTemplate = mailGenerator.generate(emailBody);
 
     await transporter.sendMail({
       from: process.env.NODEMALLER_EMAIL,
@@ -320,7 +280,7 @@ exports.updateEnquiryStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Enquiry status updated successfully",
+      message: "Enquiry status updated and email sent successfully",
       enquiry: updatedEnquiry,
     });
   } catch (err) {
