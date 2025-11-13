@@ -5,6 +5,7 @@ const AdminInstitutions = require("../../controllers/admin/institutions/institut
 const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
 const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
+const Branch = require("../../controllers/admin/branch/createBramch");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -62,6 +63,23 @@ router.put(
   CompanyInfo.updateCompanyInformation,
 );
 
+router.post(
+  "/create-branch",
+  isAuthenticated,
+  isAdmin,
+  upload.single("branchLogo"),
+  Branch.createBranch,
+);
+router.get("/branch/all", isAuthenticated, Branch.getAllBranches);
+router.get("/branch/:id", isAuthenticated, isAdmin, Branch.getSingleBranch);
+
+router.put(
+  "/branch/update/:id",
+  isAuthenticated,
+  isAdmin,
+  upload.single("branchLogo"),
+  Branch.updateBranch,
+);
 router.post(
   "/add-businnes-details",
   isAuthenticated,
