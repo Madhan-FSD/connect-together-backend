@@ -1,4 +1,5 @@
 const COMPANY_DATA = require("../../../models/companyInformation/company-information");
+const { v4: uuidv4 } = require("uuid");
 
 exports.addCompanyInformation = async (req, res) => {
   try {
@@ -6,6 +7,16 @@ exports.addCompanyInformation = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Access denied - only admin can add company information",
+      });
+    }
+
+    const existingCompany = await COMPANY_DATA.findOne({ userId: req.user.id });
+
+    if (existingCompany) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Company information already exists for this user. Please use update field",
       });
     }
 
@@ -32,7 +43,10 @@ exports.addCompanyInformation = async (req, res) => {
 
     const companyLogo = req.file ? req.file.buffer : null;
 
+    const entityId = uuidv4();
+
     const newCompany = await COMPANY_DATA.create({
+      entityId,
       userId: req.user.id,
       companyName,
       role,
@@ -55,14 +69,14 @@ exports.addCompanyInformation = async (req, res) => {
       clients,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Company information added successfully",
       data: newCompany,
     });
   } catch (error) {
     console.log("Add Company Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: error.message,
@@ -72,10 +86,9 @@ exports.addCompanyInformation = async (req, res) => {
 
 exports.companyInformationProfile = async (req, res) => {
   try {
-    const company = await COMPANY_DATA.findById(req.params.id).populate(
-      "userId",
-      "firstName lastName email",
-    );
+    const company = await COMPANY_DATA.findOne({
+      entityId: req.params.id,
+    }).populate("userId", "firstName lastName email");
 
     if (!company) {
       return res.status(404).json({
@@ -88,7 +101,7 @@ exports.companyInformationProfile = async (req, res) => {
       ? `data:image/png;base64,${company.companyLogo.toString("base64")}`
       : null;
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...company._doc,
@@ -97,7 +110,7 @@ exports.companyInformationProfile = async (req, res) => {
     });
   } catch (error) {
     console.log("Get One Company Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: error.message,
@@ -114,7 +127,7 @@ exports.updateCompanyInformation = async (req, res) => {
       });
     }
 
-    const company = await COMPANY_DATA.findById(req.params.id);
+    const company = await COMPANY_DATA.findOne({ entityId: req.params.id });
 
     if (!company) {
       return res.status(404).json({
@@ -159,7 +172,7 @@ exports.updateCompanyInformation = async (req, res) => {
       ? `data:image/png;base64,${company.companyLogo.toString("base64")}`
       : null;
 
-    res.json({
+    return res.json({
       success: true,
       message: "Company information updated successfully",
       data: {
@@ -169,7 +182,7 @@ exports.updateCompanyInformation = async (req, res) => {
     });
   } catch (error) {
     console.log("Update Company Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: error.message,

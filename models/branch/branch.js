@@ -29,9 +29,10 @@ const branchSchema = new mongoose.Schema(
     },
 
     entityId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "CompanyInformation",
       required: true,
+      index: true,
     },
   },
   { timestamps: true },

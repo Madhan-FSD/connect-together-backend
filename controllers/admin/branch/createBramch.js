@@ -19,7 +19,8 @@ exports.createBranch = async (req, res) => {
       });
     }
 
-    const company = await COMPANY.findById(entityId);
+    const company = await COMPANY.findOne({ entityId });
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -58,25 +59,31 @@ exports.getAllBranches = async (req, res) => {
     const { entityId, userId } = req.query;
 
     let filter = {};
-
     if (entityId) filter.entityId = entityId;
     if (userId) filter.userId = userId;
 
-    const branches = await BRANCH.find(filter)
-      .populate("userId", "firstName lastName email")
-      .populate("entityId", "companyName");
+    const branches = await BRANCH.find(filter).populate(
+      "userId",
+      "firstName lastName email",
+    );
 
-    const dataWithLogo = branches.map((b) => ({
-      ...b._doc,
-      branchLogo: b.branchLogo
-        ? `data:image/png;base64,${b.branchLogo.toString("base64")}`
-        : null,
-    }));
+    const data = await Promise.all(
+      branches.map(async (b) => {
+        const company = await COMPANY.findOne({ entityId: b.entityId });
+        return {
+          ...b._doc,
+          companyName: company?.companyName || null,
+          branchLogo: b.branchLogo
+            ? `data:image/png;base64,${b.branchLogo.toString("base64")}`
+            : null,
+        };
+      }),
+    );
 
     res.json({
       success: true,
-      count: branches.length,
-      data: dataWithLogo,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.log("Get All Branches Error:", error);
@@ -90,9 +97,10 @@ exports.getAllBranches = async (req, res) => {
 
 exports.getSingleBranch = async (req, res) => {
   try {
-    const branch = await BRANCH.findById(req.params.id)
-      .populate("userId", "firstName lastName email")
-      .populate("entityId", "companyName");
+    const branch = await BRANCH.findById(req.params.id).populate(
+      "userId",
+      "firstName lastName email",
+    );
 
     if (!branch) {
       return res.status(404).json({
@@ -100,6 +108,8 @@ exports.getSingleBranch = async (req, res) => {
         message: "Branch not found",
       });
     }
+
+    const company = await COMPANY.findOne({ entityId: branch.entityId });
 
     const branchLogoBase64 = branch.branchLogo
       ? `data:image/png;base64,${branch.branchLogo.toString("base64")}`
@@ -109,6 +119,7 @@ exports.getSingleBranch = async (req, res) => {
       success: true,
       data: {
         ...branch._doc,
+        companyName: company?.companyName || null,
         branchLogo: branchLogoBase64,
       },
     });
@@ -147,17 +158,31 @@ exports.updateBranch = async (req, res) => {
       "entityId",
     ];
 
-    allowedFields.forEach((field) => {
+    for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
+        if (field === "entityId") {
+          const companyExists = await COMPANY.findOne({
+            entityId: req.body.entityId,
+          });
+          if (!companyExists) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid entityId, company not found",
+            });
+          }
+        }
+
         branch[field] = req.body[field];
       }
-    });
+    }
 
     if (req.file) {
       branch.branchLogo = req.file.buffer;
     }
 
     await branch.save();
+
+    const company = await COMPANY.findOne({ entityId: branch.entityId });
 
     const branchLogoBase64 = branch.branchLogo
       ? `data:image/png;base64,${branch.branchLogo.toString("base64")}`
@@ -168,6 +193,7 @@ exports.updateBranch = async (req, res) => {
       message: "Branch updated successfully",
       data: {
         ...branch._doc,
+        companyName: company?.companyName || null,
         branchLogo: branchLogoBase64,
       },
     });

@@ -12,6 +12,13 @@ const CompanyInformationSchema = new mongoose.Schema(
       required: true,
     },
 
+    entityId: {
+      type: String,
+      unique: true,
+      required: true,
+      index: true,
+    },
+
     role: {
       type: String,
       enum: ["entityAdmin", "BranchAdmin", "OpratorAdmin", "StaffAdmin"],
