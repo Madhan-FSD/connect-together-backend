@@ -1,4 +1,3 @@
-const USER = require("../../../models/auth/user");
 const BUSINESS = require("../../../models/business/business");
 
 exports.addOrUpdateBusiness = async (req, res) => {

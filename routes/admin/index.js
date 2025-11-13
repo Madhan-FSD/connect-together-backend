@@ -4,6 +4,7 @@ const { isAuthenticated, isAdmin } = require("../../middleware/auth");
 const AdminInstitutions = require("../../controllers/admin/institutions/institutions");
 const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
+const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -39,6 +40,27 @@ router.put(
   AdminInstitutions.updateEnquiryStatus,
 );
 router.get("/users-list", isAuthenticated, isAdmin, Users.userList);
+
+router.post(
+  "/create-company-information",
+  isAuthenticated,
+  isAdmin,
+  upload.single("companyLogo"),
+  CompanyInfo.addCompanyInformation,
+);
+router.get(
+  "/company-information-profile/:id",
+  isAuthenticated,
+  isAdmin,
+  CompanyInfo.companyInformationProfile,
+);
+router.put(
+  "/update-company-information/:id",
+  isAuthenticated,
+  isAdmin,
+  upload.single("companyLogo"),
+  CompanyInfo.updateCompanyInformation,
+);
 
 router.post(
   "/add-businnes-details",
