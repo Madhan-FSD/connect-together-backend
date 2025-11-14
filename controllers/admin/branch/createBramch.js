@@ -130,32 +130,76 @@ exports.createBranch = async (req, res) => {
 
 exports.getAllBranches = async (req, res) => {
   try {
-    const { entityId, user } = req.query;
+    let {
+      page = 1,
+      limit = 10,
+      search,
+      isActive,
+      isDeleted,
+      isVerified,
+      startDate,
+      endDate,
+      entityId,
+      userId,
+    } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
 
     let filter = {};
-    if (entityId) filter.entityId = entityId;
-    if (user) filter.userId = userId;
 
-    const branches = await BRANCH.find(filter).populate(
-      "user",
-      "firstName lastName email",
-    );
+    if (entityId) filter.entityId = entityId;
+
+    if (userId) filter.user = userId;
+
+    if (isActive !== undefined) filter["audit.isActive"] = isActive === "true";
+    if (isDeleted !== undefined)
+      filter["audit.isDeleted"] = isDeleted === "true";
+    if (isVerified !== undefined)
+      filter["audit.isVerified"] = isVerified === "true";
+
+    if (search) {
+      filter["contactInfo.email"] = { $regex: search, $options: "i" };
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const branches = await BRANCH.find(filter)
+      .populate("user", "firstName lastName email")
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean();
 
     const data = await Promise.all(
-      branches.map(async (b) => {
-        const company = await COMPANY.findOne({ entityId: b.entityId });
+      branches.map(async (branch) => {
+        const company = await COMPANY.findOne({
+          entityId: branch.entityId,
+        }).lean();
+
         return {
-          ...b._doc,
+          ...branch,
           companyName: company?.companyName || null,
-          branchLogo: b.branchLogo
-            ? `data:image/png;base64,${b.branchLogo.toString("base64")}`
+          branchLogo: branch.branchLogo
+            ? `data:image/png;base64,${branch.branchLogo.toString("base64")}`
             : null,
         };
       }),
     );
 
+    const total = await BRANCH.countDocuments(filter);
+
     res.json({
       success: true,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
       count: data.length,
       data,
     });
