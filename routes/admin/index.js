@@ -71,10 +71,15 @@ router.post(
   Branch.createBranch,
 );
 router.get("/branch/all", isAuthenticated, Branch.getAllBranches);
-router.get("/branch/:id", isAuthenticated, isAdmin, Branch.getSingleBranch);
+router.get(
+  "/branch/:branchId",
+  isAuthenticated,
+  isAdmin,
+  Branch.getSingleBranch,
+);
 
 router.put(
-  "/branch/update/:id",
+  "/branch/update/:branchId",
   isAuthenticated,
   isAdmin,
   upload.single("branchLogo"),

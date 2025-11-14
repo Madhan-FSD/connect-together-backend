@@ -47,7 +47,7 @@ exports.addCompanyInformation = async (req, res) => {
 
     const newCompany = await COMPANY_DATA.create({
       entityId,
-      userId: req.user.id,
+      user: req.user.id,
       companyName,
       role,
       established,

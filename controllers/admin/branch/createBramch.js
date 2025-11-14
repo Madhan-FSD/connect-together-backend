@@ -1,5 +1,6 @@
 const BRANCH = require("../../../models/branch/branch");
 const COMPANY = require("../../../models/companyInformation/company-information");
+const { v4: uuidv4 } = require("uuid");
 
 exports.createBranch = async (req, res) => {
   try {
@@ -10,7 +11,14 @@ exports.createBranch = async (req, res) => {
       });
     }
 
-    const { branchName, branchCode, contactInfo, entityId } = req.body;
+    let {
+      branchName,
+      branchCode,
+      contactInfo,
+      entityId,
+      branchDays,
+      branchTime,
+    } = req.body;
 
     if (!branchName || !branchCode || !contactInfo || !entityId) {
       return res.status(400).json({
@@ -19,8 +27,62 @@ exports.createBranch = async (req, res) => {
       });
     }
 
-    const company = await COMPANY.findOne({ entityId });
+    try {
+      contactInfo = JSON.parse(contactInfo);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: "contactInfo must be valid JSON",
+      });
+    }
 
+    if (branchDays) {
+      try {
+        branchDays = JSON.parse(branchDays);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "branchOpenDays must be valid JSON array",
+        });
+      }
+    }
+
+    const isEmailUsed = await BRANCH.findOne({
+      "contactInfo.email": contactInfo.email,
+    });
+
+    if (isEmailUsed) {
+      return res.status(400).json({
+        success: false,
+        message: "This email is already used in another branch",
+      });
+    }
+
+    if (branchTime) {
+      try {
+        branchTime = JSON.parse(branchTime);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "branchOpenTime must be valid JSON object",
+        });
+      }
+    }
+
+    contactInfo.userId = req.user.id;
+
+    if (contactInfo.phone) {
+      const cleanedPhone = String(contactInfo.phone).replace(/[^0-9]/g, "");
+      if (cleanedPhone.length < 10 || cleanedPhone.length > 12) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid phone number format",
+        });
+      }
+      contactInfo.phone = Number(cleanedPhone);
+    }
+
+    const company = await COMPANY.findOne({ entityId });
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -29,14 +91,26 @@ exports.createBranch = async (req, res) => {
     }
 
     const branchLogo = req.file ? req.file.buffer : null;
+    const branchId = uuidv4();
 
     const newBranch = await BRANCH.create({
-      userId: req.user.id,
+      branchId,
+      user: req.user.id,
       branchName,
       branchCode,
       contactInfo,
       branchLogo,
       entityId,
+      branchDays,
+      branchTime,
+      audit: {
+        createdBy: req.user.id,
+        updatedBy: req.user.id,
+        deletedBy: req.user.id,
+        isActive: true,
+        isDeleted: false,
+        isVerified: false,
+      },
     });
 
     res.status(201).json({
@@ -56,14 +130,14 @@ exports.createBranch = async (req, res) => {
 
 exports.getAllBranches = async (req, res) => {
   try {
-    const { entityId, userId } = req.query;
+    const { entityId, user } = req.query;
 
     let filter = {};
     if (entityId) filter.entityId = entityId;
-    if (userId) filter.userId = userId;
+    if (user) filter.userId = userId;
 
     const branches = await BRANCH.find(filter).populate(
-      "userId",
+      "user",
       "firstName lastName email",
     );
 
@@ -97,10 +171,9 @@ exports.getAllBranches = async (req, res) => {
 
 exports.getSingleBranch = async (req, res) => {
   try {
-    const branch = await BRANCH.findById(req.params.id).populate(
-      "userId",
-      "firstName lastName email",
-    );
+    const branch = await BRANCH.findOne({
+      branchId: req.params.branchId,
+    }).populate("user", "firstName lastName email");
 
     if (!branch) {
       return res.status(404).json({
@@ -142,7 +215,7 @@ exports.updateBranch = async (req, res) => {
       });
     }
 
-    const branch = await BRANCH.findById(req.params.id);
+    const branch = await BRANCH.findOne({ branchId: req.params.branchId });
 
     if (!branch) {
       return res.status(404).json({
@@ -156,7 +229,11 @@ exports.updateBranch = async (req, res) => {
       "branchCode",
       "contactInfo",
       "entityId",
+      "branchDays",
+      "branchTime",
     ];
+
+    const auditFields = ["isActive", "isDeleted", "isVerified"];
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -172,8 +249,106 @@ exports.updateBranch = async (req, res) => {
           }
         }
 
+        if (field === "contactInfo") {
+          if (typeof req.body[field] === "string") {
+            try {
+              req.body[field] = JSON.parse(req.body[field]);
+            } catch {
+              return res.status(400).json({
+                success: false,
+                message: "contactInfo must be valid JSON",
+              });
+            }
+          }
+
+          if (
+            typeof req.body[field] !== "object" ||
+            Array.isArray(req.body[field])
+          ) {
+            return res.status(400).json({
+              success: false,
+              message: "contactInfo must be an object",
+            });
+          }
+
+          if (req.body.contactInfo.email) {
+            const emailExists = await BRANCH.findOne({
+              "contactInfo.email": req.body.contactInfo.email,
+              branchId: { $ne: branch.branchId },
+            });
+
+            if (emailExists) {
+              return res.status(400).json({
+                success: false,
+                message: "This email is already used in another branch",
+              });
+            }
+          }
+
+          req.body[field].userId = branch.contactInfo.userId || req.user.id;
+        }
+
+        if (field === "branchDays" && typeof req.body[field] === "string") {
+          try {
+            req.body[field] = JSON.parse(req.body[field]);
+          } catch {
+            return res.status(400).json({
+              success: false,
+              message: "branchDays must be valid JSON array",
+            });
+          }
+        }
+
+        if (field === "contactInfo") {
+          if (typeof req.body[field] === "string") {
+            try {
+              req.body[field] = JSON.parse(req.body[field]);
+            } catch {
+              return res.status(400).json({
+                success: false,
+                message: "contactInfo must be valid JSON",
+              });
+            }
+          }
+
+          if (
+            typeof req.body[field] !== "object" ||
+            Array.isArray(req.body[field])
+          ) {
+            return res.status(400).json({
+              success: false,
+              message: "contactInfo must be an object",
+            });
+          }
+
+          req.body[field].userId = branch.contactInfo.userId || req.user.id;
+        }
+
+        if (field === "branchTime" && typeof req.body[field] === "string") {
+          try {
+            req.body[field] = JSON.parse(req.body[field]);
+          } catch {
+            return res.status(400).json({
+              success: false,
+              message: "branchTime must be valid JSON object",
+            });
+          }
+        }
+
         branch[field] = req.body[field];
       }
+    }
+
+    auditFields.forEach((auditField) => {
+      if (req.body[auditField] !== undefined) {
+        branch.audit[auditField] = req.body[auditField];
+      }
+    });
+
+    branch.audit.updatedBy = req.user.id;
+
+    if (req.body.isDeleted === true) {
+      branch.audit.deletedBy = req.user.id;
     }
 
     if (req.file) {

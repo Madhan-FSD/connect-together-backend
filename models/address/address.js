@@ -12,10 +12,11 @@ const addressSchema = new mongoose.Schema(
     countryName: { type: String, required: true },
     city: { type: String, required: true },
     state: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
     phone: { type: Number },
     alternativeNumber: { type: Number },
   },
   { timestamps: true },
 );
-
-module.exports = mongoose.model("Address", addressSchema);
+const Address = mongoose.model("Address", addressSchema);
+module.exports = { Address, addressSchema };

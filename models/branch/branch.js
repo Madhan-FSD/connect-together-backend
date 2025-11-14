@@ -1,11 +1,20 @@
 const mongoose = require("mongoose");
+const { addressSchema } = require("../address/address");
+const auditSchema = require("../common/audit.Schema");
 
 const branchSchema = new mongoose.Schema(
   {
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Users",
       required: true,
+    },
+
+    branchId: {
+      type: String,
+      unique: true,
+      required: true,
+      index: true,
     },
 
     branchName: {
@@ -18,15 +27,24 @@ const branchSchema = new mongoose.Schema(
       required: true,
     },
 
-    contactInfo: {
-      type: String,
-      required: true,
-    },
+    contactInfo: addressSchema,
 
     branchLogo: {
       type: Buffer,
       required: false,
     },
+
+    branchDays: {
+      type: [String],
+      required: true,
+    },
+
+    branchTime: {
+      open: { type: String, required: true },
+      close: { type: String, required: true },
+    },
+
+    audit: auditSchema,
 
     entityId: {
       type: String,
