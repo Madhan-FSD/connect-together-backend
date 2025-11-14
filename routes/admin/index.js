@@ -6,6 +6,7 @@ const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
 const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
 const Branch = require("../../controllers/admin/branch/createBramch");
+const Staff = require("../../controllers/admin/staff/createStaff");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -96,5 +97,9 @@ router.post(
   Businnes.addOrUpdateBusiness,
 );
 router.get("/business-data", isAuthenticated, isAdmin, Businnes.getBusiness);
+
+router.post("/create-staff", isAuthenticated, Staff.createStaff);
+router.put("/update-staff/:staffId", isAuthenticated, Staff.updateStaff);
+router.get("/delete-staff-profile", isAuthenticated, Staff.deleteStaff);
 
 module.exports = router;
