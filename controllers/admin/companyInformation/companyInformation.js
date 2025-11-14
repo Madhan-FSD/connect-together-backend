@@ -88,7 +88,7 @@ exports.companyInformationProfile = async (req, res) => {
   try {
     const company = await COMPANY_DATA.findOne({
       entityId: req.params.id,
-    }).populate("userId", "firstName lastName email");
+    }).populate("user", "firstName lastName email");
 
     if (!company) {
       return res.status(404).json({
