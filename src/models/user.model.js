@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { calculateAge } from "../utils/child.utils.js";
 
+const FirebaseTokenSchema = new mongoose.Schema({
+  token: String,
+  device: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
 const ActivitySchema = new mongoose.Schema({
   subject: String,
   lessonsCompleted: Number,
@@ -97,6 +103,7 @@ const ChildSchema = new mongoose.Schema(
       type: String,
       enum: ["Male", "Female", "Other", "Prefer not to say"],
     },
+    firebaseUID: { type: String, index: true },
     dob: { type: Date },
     accessCode: String,
     accessCodeHash: String,
@@ -177,6 +184,8 @@ const UserSchema = new mongoose.Schema(
       default: "NORMAL_USER",
       required: true,
     },
+    firebaseUID: { type: String, index: true },
+    firebaseTokens: [FirebaseTokenSchema],
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
