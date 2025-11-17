@@ -34,6 +34,7 @@ const auditSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    hasChild: { type: Boolean, default: false },
   },
   { _id: false },
 );

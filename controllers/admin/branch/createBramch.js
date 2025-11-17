@@ -4,14 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 
 exports.createBranch = async (req, res) => {
   try {
-    if (req.user.userType !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admin can create branches",
-      });
-    }
-
-    let {
+    const {
       branchName,
       branchCode,
       contactInfo,
@@ -27,100 +20,102 @@ exports.createBranch = async (req, res) => {
       });
     }
 
+    let parsedContactInfo, parsedBranchDays, parsedBranchTime;
+
     try {
-      contactInfo = JSON.parse(contactInfo);
-    } catch (err) {
+      parsedContactInfo = JSON.parse(contactInfo);
+    } catch {
       return res.status(400).json({
         success: false,
         message: "contactInfo must be valid JSON",
       });
     }
 
-    if (branchDays) {
-      try {
-        branchDays = JSON.parse(branchDays);
-      } catch (err) {
-        return res.status(400).json({
-          success: false,
-          message: "branchOpenDays must be valid JSON array",
-        });
-      }
+    try {
+      parsedBranchDays = branchDays ? JSON.parse(branchDays) : [];
+      if (!Array.isArray(parsedBranchDays)) throw new Error();
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "branchDays must be valid JSON array",
+      });
+    }
+
+    try {
+      parsedBranchTime = branchTime ? JSON.parse(branchTime) : null;
+      if (!parsedBranchTime?.open || !parsedBranchTime?.close)
+        throw new Error();
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "branchTime must be valid JSON with open & close keys",
+      });
+    }
+
+    const company = await COMPANY.findOne({ entityId, user: req.user.id });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid entityId OR this company does not belong to you",
+      });
     }
 
     const isEmailUsed = await BRANCH.findOne({
-      "contactInfo.email": contactInfo.email,
+      "contactInfo.email": parsedContactInfo.email,
+      entityId,
     });
 
     if (isEmailUsed) {
       return res.status(400).json({
         success: false,
-        message: "This email is already used in another branch",
+        message: "This email already exists in another branch",
       });
     }
 
-    if (branchTime) {
-      try {
-        branchTime = JSON.parse(branchTime);
-      } catch (err) {
-        return res.status(400).json({
-          success: false,
-          message: "branchOpenTime must be valid JSON object",
-        });
+    if (parsedContactInfo.phone) {
+      const cleaned = String(parsedContactInfo.phone).replace(/[^0-9]/g, "");
+      if (cleaned.length < 10 || cleaned.length > 12) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid phone number" });
       }
+      parsedContactInfo.phone = Number(cleaned);
     }
 
-    contactInfo.userId = req.user.id;
-
-    if (contactInfo.phone) {
-      const cleanedPhone = String(contactInfo.phone).replace(/[^0-9]/g, "");
-      if (cleanedPhone.length < 10 || cleanedPhone.length > 12) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid phone number format",
-        });
-      }
-      contactInfo.phone = Number(cleanedPhone);
-    }
-
-    const company = await COMPANY.findOne({ entityId });
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid entityId, company not found",
-      });
-    }
+    parsedContactInfo.userId = req.user.id;
 
     const branchLogo = req.file ? req.file.buffer : null;
-    const branchId = uuidv4();
 
     const newBranch = await BRANCH.create({
-      branchId,
+      branchId: uuidv4(),
       user: req.user.id,
       branchName,
       branchCode,
-      contactInfo,
+      contactInfo: parsedContactInfo,
       branchLogo,
+      branchDays: parsedBranchDays,
+      role: { role: "BranchAdmin" },
+      branchTime: parsedBranchTime,
       entityId,
-      branchDays,
-      branchTime,
       audit: {
         createdBy: req.user.id,
         updatedBy: req.user.id,
-        deletedBy: req.user.id,
+        deletedBy: null,
         isActive: true,
         isDeleted: false,
         isVerified: false,
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Branch created successfully",
       data: newBranch,
     });
   } catch (error) {
     console.log("Create Branch Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: error.message,
@@ -252,13 +247,6 @@ exports.getSingleBranch = async (req, res) => {
 
 exports.updateBranch = async (req, res) => {
   try {
-    if (req.user.userType !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admin can update branches",
-      });
-    }
-
     const branch = await BRANCH.findOne({ branchId: req.params.branchId });
 
     if (!branch) {
@@ -419,6 +407,57 @@ exports.updateBranch = async (req, res) => {
   } catch (error) {
     console.log("Update Branch Error:", error);
     res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.softDeleteBranch = async (req, res) => {
+  try {
+    const { branchId } = req.params;
+
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required",
+      });
+    }
+
+    const branch = await BRANCH.findOne({
+      branchId,
+      user: req.user.id,
+    });
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found or not owned by this admin",
+      });
+    }
+
+    const deletedBranch = await BRANCH.findByIdAndUpdate(
+      branch._id,
+      {
+        $set: {
+          "audit.isActive": false,
+          "audit.isDeleted": true,
+          "audit.deletedBy": req.user.id,
+          "audit.updatedBy": req.user.id,
+        },
+      },
+      { new: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Branch soft-deleted successfully",
+      data: deletedBranch,
+    });
+  } catch (error) {
+    console.log("Soft Delete Branch Error:", error);
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: error.message,

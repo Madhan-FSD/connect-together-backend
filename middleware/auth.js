@@ -16,37 +16,27 @@ exports.isAuthenticated = async (req, res, next) => {
 
     const user = await USER.findById(decoded.id).select("-password");
 
-    if (!user)
+    if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
+    }
 
     req.user = {
       id: user._id,
       userId: user.userId,
-      userType: user.userType,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
+      role: user.role?.role || "user",
     };
 
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err.message);
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid or expired token" });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
-};
-
-exports.isAdmin = (req, res, next) => {
-  if (!req.user)
-    return res.status(401).json({ success: false, message: "Unauthorized" });
-  if (req.user.userType !== "admin") {
-    return res
-      .status(403)
-      .json({ success: false, message: "Access denied - Admin only" });
-  }
-  next();
 };

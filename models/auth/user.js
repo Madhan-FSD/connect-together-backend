@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const auditSchema = require("../common/audit.Schema");
+const roleSchema = require("../common/role.Schema");
 
-// Child schema (same as yours)
 const ChildSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true },
@@ -49,21 +49,6 @@ const UserSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true },
     countryCode: { type: String, default: "+91" },
     password: { type: String, required: true },
-    userType: {
-      type: String,
-      enum: ["normal", "parent", "admin", "branchMember", "staff"],
-      default: "normal",
-    },
-    staffId: {
-      type: String,
-      unique: true,
-      required: true,
-      index: true,
-    },
-    isActive: { type: Boolean, default: true },
-    isDeleted: { type: Boolean, default: false },
-    isVerifed: { type: Boolean, default: false },
-    hasChild: { type: Boolean, default: false },
     gender: { type: String },
     pin: { type: String, minlength: 6, maxlength: 6 },
     children: [ChildSchema],
@@ -74,12 +59,8 @@ const UserSchema = new mongoose.Schema(
       default: "local",
     },
     photo: { type: String },
-    branchId: {
-      type: String,
-      ref: "Branch",
-      required: false,
-    },
     audit: auditSchema,
+    role: roleSchema,
   },
   { timestamps: true },
 );

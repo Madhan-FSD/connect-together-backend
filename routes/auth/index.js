@@ -7,7 +7,7 @@ const {
   validateSignUp,
   loginValidate,
 } = require("../../validations/user.validate");
-const { isAdmin, isAuthenticated } = require("../../middleware/auth");
+const { isAuthenticated } = require("../../middleware/auth");
 const { updatePhoto } = require("../../controllers/photos/index");
 const upload = require("../../middleware/upload");
 const { googleLogin } = require("../../controllers/auth/googleLogin");

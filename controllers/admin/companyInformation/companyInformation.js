@@ -3,20 +3,17 @@ const { v4: uuidv4 } = require("uuid");
 
 exports.addCompanyInformation = async (req, res) => {
   try {
-    if (req.user.userType !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied - only admin can add company information",
-      });
-    }
+    const entityAdminId = req.user.id;
 
-    const existingCompany = await COMPANY_DATA.findOne({ userId: req.user.id });
+    const existingCompany = await COMPANY_DATA.findOne({
+      user: entityAdminId,
+    });
 
     if (existingCompany) {
       return res.status(400).json({
         success: false,
         message:
-          "Company information already exists for this user. Please use update field",
+          "Company information already exists for this entity admin. Please use update API.",
       });
     }
 
@@ -38,18 +35,37 @@ exports.addCompanyInformation = async (req, res) => {
       dealroomLink,
       memberships,
       clients,
-      role,
     } = req.body;
 
-    const companyLogo = req.file ? req.file.buffer : null;
+    if (
+      !companyName ||
+      !established ||
+      !communicationSource ||
+      !sellerType ||
+      !headquarters ||
+      !description ||
+      !website ||
+      !contactEmail
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
 
-    const entityId = uuidv4();
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Company logo is required",
+      });
+    }
+
+    const companyLogo = req.file.buffer;
 
     const newCompany = await COMPANY_DATA.create({
-      entityId,
-      user: req.user.id,
+      entityId: uuidv4(),
+      user: entityAdminId,
       companyName,
-      role,
       established,
       communicationSource,
       sellerType,
@@ -67,6 +83,7 @@ exports.addCompanyInformation = async (req, res) => {
       dealroomLink,
       memberships,
       clients,
+      role: req.user.role,
     });
 
     return res.status(201).json({
@@ -120,13 +137,6 @@ exports.companyInformationProfile = async (req, res) => {
 
 exports.updateCompanyInformation = async (req, res) => {
   try {
-    if (req.user.userType !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied - only admin can update company information",
-      });
-    }
-
     const company = await COMPANY_DATA.findOne({ entityId: req.params.id });
 
     if (!company) {

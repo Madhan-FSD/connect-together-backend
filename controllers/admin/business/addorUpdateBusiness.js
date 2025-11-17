@@ -1,115 +1,190 @@
 const BUSINESS = require("../../../models/business/business");
+const { v4: uuidv4 } = require("uuid");
 
-exports.addOrUpdateBusiness = async (req, res) => {
+exports.createBusiness = async (req, res) => {
   try {
-    if (req.user.userType !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied - only admin can add or update business data",
-      });
-    }
-
-    const userId = req.user.id;
-    const { businessName, businessCode, addressBusiness, buisnessAbout } =
-      req.body;
-
-    if (!businessName || !businessCode || !addressBusiness || !buisnessAbout) {
-      return res.status(400).json({
-        success: false,
-        message: "All required fields must be provided",
-      });
-    }
-
-    const businessLogo = req.files?.businessLogo?.[0];
-    const businessBanner = req.files?.businessBanner?.[0];
-
-    if (!businessLogo || !businessBanner) {
-      return res.status(400).json({
-        success: false,
-        message: "Both businessLogo and businessBanner are required",
-      });
-    }
-
-    const businessData = {
-      userId,
+    const {
       businessName,
       businessCode,
       addressBusiness,
       buisnessAbout,
-      busineessLogo: businessLogo.buffer,
-      busineessBanner: businessBanner.buffer,
-      contentType: businessLogo.mimetype,
-      fileSizeKB: Math.round(businessLogo.size / 1024),
-    };
+      createdBy,
+    } = req.body;
 
-    const existingBusiness = await BUSINESS.findOne({ userId });
-
-    let savedBusiness;
-    if (existingBusiness) {
-      savedBusiness = await BUSINESS.findOneAndUpdate(
-        { userId },
-        { $set: businessData },
-        { new: true },
-      );
-    } else {
-      const newBusiness = new BUSINESS(businessData);
-      savedBusiness = await newBusiness.save();
+    if (!businessName || !businessCode || !addressBusiness || !buisnessAbout) {
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields required" });
     }
 
-    res.status(200).json({
+    let logoBase64 = null;
+    let bannerBase64 = null;
+
+    if (req.files && req.files.businessLogo) {
+      logoBase64 = req.files.businessLogo[0].buffer.toString("base64");
+    }
+
+    if (req.files && req.files.businessBanner) {
+      bannerBase64 = req.files.businessBanner[0].buffer.toString("base64");
+    }
+
+    const newBusiness = new BUSINESS({
+      businessId: uuidv4(),
+      ownerId: req.user.id,
+      businessName,
+      businessCode,
+      addressBusiness,
+      buisnessAbout,
+      busineessLogo: logoBase64,
+      busineessBanner: bannerBase64,
+      audit: {
+        createdBy: createdBy || null,
+        updatedBy: null,
+        deletedBy: null,
+        isActive: true,
+        isDeleted: false,
+        isVerified: false,
+      },
+    });
+
+    await newBusiness.save();
+
+    res.status(201).json({
       success: true,
-      message: "Business information saved successfully",
-      business: savedBusiness,
+      message: "Business registered successfully",
+      businessId: newBusiness.businessId,
     });
-  } catch (error) {
-    console.error("Business Add Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+  } catch (err) {
+    console.log("Register Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-exports.getBusiness = async (req, res) => {
+exports.getBusinessProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const business = await BUSINESS.findOne({ userId });
+    const business = await BUSINESS.findOne({
+      ownerId: req.user.id,
+    }).lean();
 
     if (!business) {
       return res.status(404).json({
         success: false,
-        message: "No business data found for this user",
+        message: "Business not found for this admin",
       });
     }
 
     const logoBase64 = business.busineessLogo
-      ? `data:${business.contentType};base64,${business.busineessLogo.toString(
-          "base64",
-        )}`
+      ? `data:image/png;base64,${business.busineessLogo}`
       : null;
 
     const bannerBase64 = business.busineessBanner
-      ? `data:${
-          business.contentType
-        };base64,${business.busineessBanner.toString("base64")}`
+      ? `data:image/png;base64,${business.busineessBanner}`
       : null;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Business data fetched successfully",
+      message: "Business profile fetched successfully",
       business: {
-        ...business.toObject(),
+        ...business,
         busineessLogo: logoBase64,
         busineessBanner: bannerBase64,
       },
     });
   } catch (error) {
-    console.error("Get Business Error:", error);
-    res.status(500).json({
+    console.error("Get Business Profile Error:", error);
+    return res.status(500).json({
       success: false,
       message: "Server error",
-      error: error.message,
+    });
+  }
+};
+
+exports.editBusiness = async (req, res) => {
+  try {
+    const business = await BUSINESS.findOne({ ownerId: req.user.id });
+
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        message: "Business not found for this admin",
+      });
+    }
+
+    const updatable = [
+      "businessName",
+      "businessCode",
+      "addressBusiness",
+      "buisnessAbout",
+    ];
+
+    const updateObj = {};
+
+    updatable.forEach((key) => {
+      if (req.body[key]) updateObj[key] = req.body[key];
+    });
+
+    if (req.files?.businessLogo) {
+      updateObj.busineessLogo =
+        req.files.businessLogo[0].buffer.toString("base64");
+    }
+
+    if (req.files?.businessBanner) {
+      updateObj.busineessBanner =
+        req.files.businessBanner[0].buffer.toString("base64");
+    }
+
+    updateObj["audit.updatedBy"] = req.user.id;
+
+    const updatedBusiness = await BUSINESS.findByIdAndUpdate(
+      business._id,
+      { $set: updateObj },
+      { new: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Business updated successfully",
+      business: updatedBusiness,
+    });
+  } catch (err) {
+    console.log("Edit Business Error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+exports.softDeleteBusiness = async (req, res) => {
+  try {
+    const business = await BUSINESS.findOne({ ownerId: req.user.id });
+
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        message: "Business not found for this admin",
+      });
+    }
+
+    const deletedBusiness = await BUSINESS.findByIdAndUpdate(
+      business._id,
+      {
+        $set: {
+          "audit.isActive": false,
+          "audit.isDeleted": true,
+          "audit.deletedBy": req.user.id,
+        },
+      },
+      { new: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Business soft-deleted successfully",
+      business: deletedBusiness,
+    });
+  } catch (err) {
+    console.log("Soft Delete Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
     });
   }
 };

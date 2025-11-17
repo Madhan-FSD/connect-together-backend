@@ -8,27 +8,48 @@ const sendOTP = require("../../helpers/sendOtpHandler");
 exports.verifySignUpOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
+
     const otpData = await OTP.findOne({ email, otpType: "signup" });
+    if (!otpData)
+      return res.status(400).json({ success: false, message: "OTP not found" });
 
-    if (!otpData) return res.status(400).json({ message: "OTP not found" });
     if (otpData.otp !== Number(otp))
-      return res.status(400).json({ message: "Invalid OTP" });
-    if (otpData.otpExpiry < Date.now())
-      return res.status(400).json({ message: "OTP expired" });
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
 
-    await USER.updateOne({ email }, { isVerifed: true });
-    await OTP.deleteOne({ email, otpType: "signup" });
+    if (otpData.otpExpiry < Date.now())
+      return res.status(400).json({ success: false, message: "OTP expired" });
 
     const user = await USER.findOne({ email });
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+
+    await USER.updateOne(
+      { email },
+      {
+        $set: {
+          "audit.isVerified": true,
+          "audit.updatedBy": user._id,
+        },
+      },
+    );
+
+    await OTP.deleteOne({ email, otpType: "signup" });
+
     await sendOtpEmail(
       email,
       "Welcome to Peer Plus",
       getWelcomeEmailTemplate(user.firstName, email),
     );
 
-    return res.status(200).json({ message: "Signup verified successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Signup verified successfully",
+    });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    console.error("Verify OTP Error:", error.message);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

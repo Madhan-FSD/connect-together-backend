@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { addressSchema } = require("../address/address");
 const auditSchema = require("../common/audit.Schema");
+const RoleSchema = require("../common/role.Schema");
 
 const branchSchema = new mongoose.Schema(
   {
@@ -45,6 +46,7 @@ const branchSchema = new mongoose.Schema(
     },
 
     audit: auditSchema,
+    role: RoleSchema,
 
     entityId: {
       type: String,
