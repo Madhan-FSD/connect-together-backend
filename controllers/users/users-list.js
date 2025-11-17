@@ -4,9 +4,7 @@ exports.userList = async (req, res) => {
   try {
     let { q, page = 1, limit = 20, isVerifed, hasChild, isActive } = req.query;
 
-    const filter = {
-      isDeleted: false,
-    };
+    const filter = {};
 
     if (q) {
       filter.$or = [
@@ -21,30 +19,34 @@ exports.userList = async (req, res) => {
       filter.isVerifed = isVerifed === "true";
     }
 
-    if (hasChild === "true" || hasChild === "false") {
-      filter.hasChild = hasChild === "true";
-    }
-
     if (isActive === "true" || isActive === "false") {
       filter.isActive = isActive === "true";
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (hasChild === "true") {
+      filter["children.0"] = { $exists: true };
+    } else if (hasChild === "false") {
+      filter["children.0"] = { $exists: false };
+    }
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const skip = (page - 1) * limit;
 
     const users = await USER.find(filter)
       .select("-password -__v")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
-    const totalUsers = await USER.countDocuments(filter);
+    const total = await USER.countDocuments(filter);
 
     return res.status(200).json({
       success: true,
-      total: totalUsers,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(totalUsers / limit),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
       data: users,
     });
   } catch (error) {
