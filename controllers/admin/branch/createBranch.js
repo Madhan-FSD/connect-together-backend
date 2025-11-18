@@ -30,10 +30,10 @@ exports.createBranch = async (req, res) => {
     // Generate Branch ID first
     const generatedBranchId = uuidv4();
 
-    // 2️⃣ Fix: Add branchId & unquicId to holiday data
+    // 2️⃣ Fix: Add branchId & uniqueId to holiday data
     if (parsedHolidayData) {
       parsedHolidayData.branchId = generatedBranchId;
-      parsedHolidayData.unquicId = uuidv4();
+      parsedHolidayData.uniqueId = uuidv4();
 
       if (parsedHolidayData.hoildayTypes === "full_holiday") {
         parsedHolidayData.openingTime = null;

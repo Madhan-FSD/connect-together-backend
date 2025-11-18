@@ -8,9 +8,10 @@ const HolidayBranchSchema = new mongoose.Schema(
       ref: "Branch",
       required: true,
     },
-    unquicId: {
+    uniqueId: {
       type: String,
       required: true,
+      unique: true,
     },
     dateHoliday: {
       type: Date,
