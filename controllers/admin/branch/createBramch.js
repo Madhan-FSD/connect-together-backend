@@ -236,6 +236,13 @@ exports.getSingleBranch = async (req, res) => {
       });
     }
 
+    if (branch.audit?.isDeleted === true) {
+      return res.status(403).json({
+        success: false,
+        message: "Entity admin will allow you to use this branch",
+      });
+    }
+
     const company = await COMPANY.findOne({ entityId: branch.entityId });
 
     const branchLogoBase64 = branch.branchLogo
