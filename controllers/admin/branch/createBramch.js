@@ -11,116 +11,64 @@ exports.createBranch = async (req, res) => {
       entityId,
       branchDays,
       branchTime,
+      holidayData,
     } = req.body;
 
-    if (!branchName || !branchCode || !contactInfo || !entityId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
-    }
+    let parsedHolidayData,
+      parsedContactInfo,
+      parsedBranchDays,
+      parsedBranchTime;
 
-    if (holidayData.hoildayTypes === "full_holiday") {
-      holidayData.openingTime = null;
-      holidayData.closingTime = null;
-    }
+    parsedContactInfo = JSON.parse(contactInfo);
+    parsedBranchDays = branchDays ? JSON.parse(branchDays) : [];
+    parsedBranchTime = branchTime ? JSON.parse(branchTime) : null;
+    parsedHolidayData = holidayData ? JSON.parse(holidayData) : null;
 
-    if (holidayData.hoildayTypes === "half_holiday") {
-      if (!holidayData.openingTime || !holidayData.closingTime) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "For half day holiday, openingTime and closingTime are required",
-        });
-      }
-    }
-
-    let parsedContactInfo, parsedBranchDays, parsedBranchTime;
-
-    try {
-      parsedContactInfo = JSON.parse(contactInfo);
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: "contactInfo must be valid JSON",
-      });
-    }
-
-    try {
-      parsedBranchDays = branchDays ? JSON.parse(branchDays) : [];
-      if (!Array.isArray(parsedBranchDays)) throw new Error();
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: "branchDays must be valid JSON array",
-      });
-    }
-
-    try {
-      parsedBranchTime = branchTime ? JSON.parse(branchTime) : null;
-      if (!parsedBranchTime?.open || !parsedBranchTime?.close)
-        throw new Error();
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: "branchTime must be valid JSON with open & close keys",
-      });
-    }
-
-    const company = await COMPANY.findOne({ entityId, user: req.user.id });
-
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid entityId OR this company does not belong to you",
-      });
-    }
-
-    const isEmailUsed = await BRANCH.findOne({
-      "contactInfo.email": parsedContactInfo.email,
-      entityId,
-    });
-
-    if (isEmailUsed) {
-      return res.status(400).json({
-        success: false,
-        message: "This email already exists in another branch",
-      });
-    }
-
-    if (parsedContactInfo.phone) {
-      const cleaned = String(parsedContactInfo.phone).replace(/[^0-9]/g, "");
-      if (cleaned.length < 10 || cleaned.length > 12) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid phone number" });
-      }
-      parsedContactInfo.phone = Number(cleaned);
-    }
-
+    // 1️⃣ Fix: Add userId inside contactInfo
     parsedContactInfo.userId = req.user.id;
 
-    const branchLogo = req.file ? req.file.buffer : null;
+    // Generate Branch ID first
+    const generatedBranchId = uuidv4();
+
+    // 2️⃣ Fix: Add branchId & unquicId to holiday data
+    if (parsedHolidayData) {
+      parsedHolidayData.branchId = generatedBranchId;
+      parsedHolidayData.unquicId = uuidv4();
+
+      if (parsedHolidayData.hoildayTypes === "full_holiday") {
+        parsedHolidayData.openingTime = null;
+        parsedHolidayData.closingTime = null;
+      }
+
+      if (parsedHolidayData.hoildayTypes === "half_holiday") {
+        if (!parsedHolidayData.openingTime || !parsedHolidayData.closingTime) {
+          return res.status(400).json({
+            success: false,
+            message: "For half holiday, opening & closing time required",
+          });
+        }
+      }
+    }
 
     const newBranch = await BRANCH.create({
-      branchId: uuidv4(),
+      branchId: generatedBranchId,
       user: req.user.id,
       branchName,
       branchCode,
       contactInfo: parsedContactInfo,
-      branchLogo,
+      branchLogo: req.file ? req.file.buffer : null,
       branchDays: parsedBranchDays,
-      role: { role: "BranchAdmin" },
       branchTime: parsedBranchTime,
       entityId,
+      holidayBranch: parsedHolidayData,
       audit: {
         createdBy: req.user.id,
         updatedBy: req.user.id,
-        deletedBy: null,
         isActive: true,
         isDeleted: false,
         isVerified: false,
       },
+      role: { role: "BranchAdmin" },
     });
 
     return res.status(201).json({
@@ -130,6 +78,17 @@ exports.createBranch = async (req, res) => {
     });
   } catch (error) {
     console.log("Create Branch Error:", error);
+    if (
+      error.code === 11000 &&
+      error.keyPattern &&
+      error.keyPattern["contactInfo.email"]
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This email is already used in another branch. Please use a different email.",
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "Server error",

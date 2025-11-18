@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const auditSchema = require("../common/audit.Schema");
-const { addressSchema } = require("../address/address");
 const courseContentSchema = require("../common/courseLeasson.Schema");
 
 const courseSchema = new mongoose.Schema({
@@ -22,8 +21,8 @@ const courseSchema = new mongoose.Schema({
 
   basePrice: { type: Number, required: true },
 
-  thumbnail: String,
-  coverImage: String,
+  thumbnail: Buffer,
+  coverImage: Buffer,
 
   tags: [String],
 
@@ -33,8 +32,7 @@ const courseSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Users" },
   createdAt: { type: Date, default: Date.now },
   audit: auditSchema,
-  contactInfo: addressSchema,
-  courseContent: courseContentSchema,
+  courseContent: [courseContentSchema],
 });
 
 module.exports = mongoose.model("Course", courseSchema);

@@ -46,6 +46,7 @@ router.get("/users-list", isAuthenticated, Users.userList);
 
 router.post(
   "/create-company-information",
+  upload.none(),
   isAuthenticated,
   CompanyInfo.addCompanyInformation,
 );
@@ -132,5 +133,6 @@ router.post(
   ]),
   courseCtrl.createCourse,
 );
+router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
 
 module.exports = router;

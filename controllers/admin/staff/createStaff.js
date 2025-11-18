@@ -13,12 +13,32 @@ exports.createStaff = async (req, res) => {
       });
     }
 
-    const branch = await BRANCH.findOne({
-      branchId,
-      user: req.user.id,
-      "audit.isDeleted": false,
-      "audit.isActive": true,
-    });
+    const branch = await BRANCH.findOne({ branchId });
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
+    if (branch.audit.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create staff in a deleted branch",
+      });
+    }
+
+    if (
+      branch.user.toString() !== req.user.id.toString() &&
+      req.user.role !== "entityAdmin" &&
+      req.user.role !== "superAdmin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to add staff to this branch",
+      });
+    }
 
     if (!branch) {
       return res.status(400).json({

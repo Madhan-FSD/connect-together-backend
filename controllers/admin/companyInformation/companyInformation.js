@@ -9,14 +9,6 @@ exports.addCompanyInformation = async (req, res) => {
       user: entityAdminId,
     });
 
-    if (existingCompany) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Company information already exists for this entity admin. Please use update API.",
-      });
-    }
-
     const {
       established,
       communicationSource,
@@ -72,6 +64,15 @@ exports.addCompanyInformation = async (req, res) => {
       clients,
       role: req.user.role,
     });
+
+    if (existingCompany) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Company information already exists for this entity admin. Please use update API.",
+        data: newCompany,
+      });
+    }
 
     return res.status(201).json({
       success: true,

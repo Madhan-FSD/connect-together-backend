@@ -7,6 +7,7 @@ const OTP = require("../../models/auth/otp");
 const jwt = require("jsonwebtoken");
 const USER_PHOTO = require("../../models/photos/photoUsers");
 const { Address } = require("../../models/address/address");
+const STAFF = require("../../models/staff/staff");
 
 exports.signUp = async (req, res) => {
   try {
@@ -23,7 +24,7 @@ exports.signUp = async (req, res) => {
     const plainPassword = VALIDATORS.generatedPassword();
     const hashPassword = await bcrypt.hash(plainPassword, 10);
 
-    const allowedSignUpRoles = ["user", "entityAdmin"];
+    const allowedSignUpRoles = ["user", "entityAdmin", "StaffAdmin"];
 
     const finalRole = allowedSignUpRoles.includes(role) ? role : "user";
 
@@ -66,9 +67,42 @@ exports.login = async (req, res) => {
         return res.status(400).json({ message: "Email and password required" });
       }
 
-      const user = await USER.findOne({ email });
+      let user = await USER.findOne({ email });
       if (!user) {
-        return res.status(400).json({ message: "User not registered" });
+        const staff = await STAFF.findOne({ email });
+
+        if (!staff) {
+          return res.status(400).json({ message: "User not registered" });
+        }
+
+        if (!staff.audit?.isActive || staff.audit?.isDeleted) {
+          return res.status(403).json({
+            success: false,
+            message: "Staff profile disabled. Branch admin must enable it.",
+          });
+        }
+
+        if (!password) {
+          return res.status(400).json({ message: "Invalid password" });
+        }
+
+        const token = jwt.sign(
+          {
+            id: staff._id,
+            role: staff.role?.role || "StaffAdmin",
+            staff: true,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "7d" },
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "Staff login successful",
+          token,
+          role: "StaffAdmin",
+          staff,
+        });
       }
 
       if (!user.audit?.isVerified) {

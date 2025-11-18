@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const USER = require("../models/auth/user");
+const STAFF = require("../models/staff/staff");
 
 exports.isAuthenticated = async (req, res, next) => {
   try {
@@ -14,26 +15,43 @@ exports.isAuthenticated = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
 
-    const user = await USER.findById(decoded.id).select("-password");
+    let user = await USER.findById(decoded.id).select("-password");
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (user) {
+      req.user = {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        role: user.role?.role || "user",
+        isStaff: false,
+      };
+      return next();
     }
 
-    req.user = {
-      id: user._id,
-      userId: user.userId,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phone: user.phone,
-      role: user.role?.role || "user",
-    };
+    let staff = await STAFF.findById(decoded.id).select("-password");
 
-    next();
+    if (staff) {
+      req.user = {
+        id: staff._id,
+        email: staff.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        phone: staff.phone,
+        role: staff.role?.role || "StaffAdmin",
+        branchId: staff.branchId,
+        isStaff: true,
+      };
+      return next();
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
   } catch (err) {
+    console.log("Auth Error:", err);
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
