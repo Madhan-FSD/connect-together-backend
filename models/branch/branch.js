@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { addressSchema } = require("../address/address");
 const auditSchema = require("../common/audit.Schema");
 const RoleSchema = require("../common/role.Schema");
+const HolidayBranchSchema = require("../common/holidayBranch");
 
 const branchSchema = new mongoose.Schema(
   {
@@ -54,6 +55,7 @@ const branchSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    holidayBranch: HolidayBranchSchema,
   },
   { timestamps: true },
 );

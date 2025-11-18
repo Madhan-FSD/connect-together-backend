@@ -20,6 +20,21 @@ exports.createBranch = async (req, res) => {
       });
     }
 
+    if (holidayData.hoildayTypes === "full_holiday") {
+      holidayData.openingTime = null;
+      holidayData.closingTime = null;
+    }
+
+    if (holidayData.hoildayTypes === "half_holiday") {
+      if (!holidayData.openingTime || !holidayData.closingTime) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "For half day holiday, openingTime and closingTime are required",
+        });
+      }
+    }
+
     let parsedContactInfo, parsedBranchDays, parsedBranchTime;
 
     try {
@@ -422,6 +437,14 @@ exports.softDeleteBranch = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "branchId is required",
+      });
+    }
+
+    if (branchId.audit?.isDeleted === true) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your Branch is disabled. Contact entity admin to enable your Branch.",
       });
     }
 
