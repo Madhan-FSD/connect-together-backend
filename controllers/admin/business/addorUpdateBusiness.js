@@ -17,14 +17,24 @@ exports.createBusiness = async (req, res) => {
         .json({ success: false, message: "All fields required" });
     }
 
+    const existingBusiness = await BUSINESS.findOne({ ownerId: req.user.id });
+
+    if (existingBusiness) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already created this business data",
+        businessId: existingBusiness.businessId,
+      });
+    }
+
     let logoBase64 = null;
     let bannerBase64 = null;
 
-    if (req.files && req.files.businessLogo) {
+    if (req.files?.businessLogo) {
       logoBase64 = req.files.businessLogo[0].buffer.toString("base64");
     }
 
-    if (req.files && req.files.businessBanner) {
+    if (req.files?.businessBanner) {
       bannerBase64 = req.files.businessBanner[0].buffer.toString("base64");
     }
 
@@ -38,7 +48,7 @@ exports.createBusiness = async (req, res) => {
       busineessLogo: logoBase64,
       busineessBanner: bannerBase64,
       audit: {
-        createdBy: createdBy || null,
+        createdBy: createdBy || req.user.id,
         updatedBy: null,
         deletedBy: null,
         isActive: true,
@@ -55,21 +65,51 @@ exports.createBusiness = async (req, res) => {
       businessId: newBusiness.businessId,
     });
   } catch (err) {
-    console.log("Register Error:", err);
+    console.log("Register Business Error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
 exports.getBusinessProfile = async (req, res) => {
   try {
-    const business = await BUSINESS.findOne({
-      ownerId: req.user.id,
-    }).lean();
+    const userId = req.user?.id;
+    const businessId = req.params.businessId || req.query.businessId;
+
+    let business;
+
+    if (userId && !businessId) {
+      business = await BUSINESS.findOne({ ownerId: userId })
+        .populate("ownerId", "userId firstName lastName email phone role")
+        .lean();
+    }
+
+    if (businessId && !business) {
+      business = await BUSINESS.findOne({ businessId })
+        .populate("ownerId", "userId firstName lastName email phone role")
+        .lean();
+    }
+
+    if (userId && businessId) {
+      business = await BUSINESS.findOne({
+        businessId,
+        ownerId: userId,
+      })
+        .populate("ownerId", "userId firstName lastName email phone  role")
+        .lean();
+    }
 
     if (!business) {
       return res.status(404).json({
         success: false,
-        message: "Business not found for this admin",
+        message: "Business not found",
+      });
+    }
+
+    if (business.audit?.isDeleted === true) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your profile is disabled. Contact super admin to enable your profile.",
       });
     }
 
@@ -107,6 +147,14 @@ exports.editBusiness = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Business not found for this admin",
+      });
+    }
+
+    if (business.audit?.isDeleted === true) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your profile is disabled. Contact super admin to enable your profile.",
       });
     }
 
@@ -154,12 +202,21 @@ exports.editBusiness = async (req, res) => {
 
 exports.softDeleteBusiness = async (req, res) => {
   try {
-    const business = await BUSINESS.findOne({ ownerId: req.user.id });
+    const business = await BUSINESS.findOne({
+      businessId: req.params.businessId,
+    });
 
     if (!business) {
       return res.status(404).json({
         success: false,
         message: "Business not found for this admin",
+      });
+    }
+    if (business.audit?.isDeleted === true) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your profile is disabled. Contact super admin to enable your profile.",
       });
     }
 

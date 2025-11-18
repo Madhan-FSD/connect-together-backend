@@ -91,6 +91,11 @@ router.post(
   Businnes.createBusiness,
 );
 router.get("/business-profile", isAuthenticated, Businnes.getBusinessProfile);
+router.get(
+  "/business-profile/:businessId",
+  isAuthenticated,
+  Businnes.getBusinessProfile,
+);
 router.put(
   "/update-business/:businessId",
   isAuthenticated,

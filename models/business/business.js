@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditSchema = require("../common/audit.Schema");
 
 const businessSchema = new mongoose.Schema(
   {
@@ -18,6 +19,7 @@ const businessSchema = new mongoose.Schema(
 
     busineessLogo: { type: String },
     busineessBanner: { type: String },
+    audit: auditSchema,
   },
   { timestamps: true },
 );
