@@ -37,6 +37,10 @@ const staffSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Users",
+    },
 
     audit: auditSchema,
   },

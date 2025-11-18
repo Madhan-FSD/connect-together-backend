@@ -1,6 +1,5 @@
 const BRANCH = require("../../../models/branch/branch");
 const STAFF = require("../../../models/staff/staff");
-const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 
 exports.createStaff = async (req, res) => {
@@ -24,7 +23,7 @@ exports.createStaff = async (req, res) => {
     if (!branch) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or inactive branch. You cannot add staff here.",
+        message: "Invalid or inactive branch",
       });
     }
 
@@ -36,31 +35,45 @@ exports.createStaff = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const staff = await STAFF.create({
       staffId: uuidv4(),
       firstName,
       lastName,
       email,
       phone,
-      password: hashedPassword,
+      password,
       branchId,
+      user: req.user.id,
       role: { role: "StaffAdmin" },
       audit: {
         createdBy: req.user.id,
         updatedBy: req.user.id,
-        deletedBy: null,
         isActive: true,
         isDeleted: false,
         isVerified: true,
       },
     });
 
+    const finalResponse = {
+      ...staff.toObject(),
+      branch: {
+        branchId: branch.branchId,
+        branchName: branch.branchName,
+        branchCode: branch.branchCode,
+      },
+      user: {
+        id: req.user.id,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        email: req.user.email,
+        role: req.user.role,
+      },
+    };
+
     return res.status(201).json({
       success: true,
       message: "Staff created successfully",
-      data: staff,
+      data: finalResponse,
     });
   } catch (error) {
     console.log("Create Staff Error:", error);
@@ -75,8 +88,6 @@ exports.getStaffList = async (req, res) => {
     const branch = await BRANCH.findOne({
       branchId,
       user: req.user.id,
-      "audit.isDeleted": false,
-      "audit.isActive": true,
     });
 
     if (!branch) {
@@ -114,6 +125,17 @@ exports.getStaffProfile = async (req, res) => {
   try {
     const { staffId } = req.params;
 
+    if (
+      !req.user.audit ||
+      req.user.audit.isDeleted ||
+      !req.user.audit.isActive
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Branch Admin or Entity Admin must enable your profile",
+      });
+    }
+
     const staff = await STAFF.findOne({ staffId });
     if (!staff || staff.audit.isDeleted) {
       return res.status(404).json({
@@ -125,6 +147,8 @@ exports.getStaffProfile = async (req, res) => {
     const branch = await BRANCH.findOne({
       branchId: staff.branchId,
       user: req.user.id,
+      "audit.isDeleted": false,
+      "audit.isActive": true,
     });
 
     if (!branch) {
@@ -197,6 +221,17 @@ exports.deleteStaff = async (req, res) => {
   try {
     const { staffId } = req.params;
 
+    if (
+      !req.user.audit ||
+      req.user.audit.isDeleted ||
+      !req.user.audit.isActive
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Branch Admin or Entity Admin must enable your profile",
+      });
+    }
+
     const staff = await STAFF.findOne({ staffId });
     if (!staff || staff.audit.isDeleted) {
       return res.status(404).json({
@@ -209,6 +244,7 @@ exports.deleteStaff = async (req, res) => {
       branchId: staff.branchId,
       user: req.user.id,
       "audit.isDeleted": false,
+      "audit.isActive": true,
     });
 
     if (!branch) {
