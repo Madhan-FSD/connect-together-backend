@@ -16,13 +16,17 @@ export const onBoarding = async (req, res) => {
   try {
     const { email, hasChild, childData } = req.body;
 
-    const user = await USER.findOne({ email }).select("-password");
-    if (!user) return res.status(400).json({ message: "User not found" });
+    const user = await USER.findOne({ email });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
 
     if (
-      user.hasChild ||
-      user.userType === "parent" ||
-      user.children.length > 0
+      user.audit?.hasChild ||
+      user.role?.role === "parent" ||
+      (user.children && user.children.length > 0)
     ) {
       return res.status(400).json({
         success: false,
@@ -31,8 +35,9 @@ export const onBoarding = async (req, res) => {
     }
 
     if (!hasChild) {
-      user.hasChild = false;
+      user.audit.hasChild = false;
       await user.save();
+
       return res.status(200).json({
         success: true,
         message: "Onboarding skipped successfully",
@@ -41,20 +46,21 @@ export const onBoarding = async (req, res) => {
     }
 
     if (hasChild && childData) {
-      const childArray = Array.isArray(childData) ? childData : [childData];
-      user.userType = "parent";
-      user.hasChild = true;
+      const childrenArray = Array.isArray(childData) ? childData : [childData];
+
+      user.audit.hasChild = true;
+      user.role.role = "parent";
 
       const newChildren = [];
 
-      for (let i = 0; i < childArray.length; i++) {
+      for (const child of childrenArray) {
         const nextChildId = await getNextChildId();
-        const newChild = {
-          ...childArray[i],
+
+        newChildren.push({
+          ...child,
           userId: nextChildId,
           parentId: user._id,
-        };
-        newChildren.push(newChild);
+        });
       }
 
       user.children.push(...newChildren);
@@ -69,10 +75,14 @@ export const onBoarding = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ message: "Invalid request body" });
+    return res.status(400).json({ message: "Invalid onboarding request" });
   } catch (error) {
     console.error("Onboarding Error:", error);
-    res.status(500).json({ message: "Server Error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
 

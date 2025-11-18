@@ -1,15 +1,17 @@
-import USER from "../../models/auth/user.js";
-import { v4 as uuidv4 } from "uuid";
-import bcrypt from "bcrypt";
-import VALIDATORS from "../../helpers/index.js";
-import sendOTP from "../../helpers/sendOtpHandler.js";
-import OTP from "../../models/auth/otp.js";
-import jwt from "jsonwebtoken";
-import USER_PHOTO from "../../models/photos/photoUsers.js";
+const USER = require("../../models/auth/user");
+const { v4: uuidv4 } = require("uuid");
+const bcrypt = require("bcrypt");
+const VALIDATORS = require("../../helpers");
+const sendOTP = require("../../helpers/sendOtpHandler");
+const OTP = require("../../models/auth/otp");
+const jwt = require("jsonwebtoken");
+const USER_PHOTO = require("../../models/photos/photoUsers");
+const { Address } = require("../../models/address/address");
+const STAFF = require("../../models/staff/staff");
 
 export const signUp = async (req, res) => {
   try {
-    const { firstName, lastName, email, phone } = req.body;
+    const { firstName, lastName, email, phone, role } = req.body;
 
     const existUser = await USER.findOne({ email });
     if (existUser)
@@ -22,6 +24,10 @@ export const signUp = async (req, res) => {
     const plainPassword = VALIDATORS.generatedPassword();
     const hashPassword = await bcrypt.hash(plainPassword, 10);
 
+    const allowedSignUpRoles = ["user", "entityAdmin", "StaffAdmin"];
+
+    const finalRole = allowedSignUpRoles.includes(role) ? role : "user";
+
     await USER.create({
       userId: uuidv4(),
       firstName,
@@ -29,7 +35,16 @@ export const signUp = async (req, res) => {
       email,
       phone,
       password: hashPassword,
-      isVerifed: false,
+      role: { role: finalRole },
+      audit: {
+        createdBy: null,
+        updatedBy: null,
+        deletedBy: null,
+        isActive: true,
+        isDeleted: false,
+        isVerified: false,
+        hasChild: false,
+      },
     });
 
     await sendOTP(email, firstName, "signup");
@@ -48,78 +63,122 @@ export const login = async (req, res) => {
     const { email, password, userId, pin, loginType } = req.body;
 
     if (loginType === "password") {
-      if (!email || !password)
+      if (!email || !password) {
         return res.status(400).json({ message: "Email and password required" });
+      }
 
-      const user = await USER.findOne({ email });
-      if (!user)
-        return res.status(400).json({ message: "User not registered" });
-      if (!user.isVerifed)
+      let user = await USER.findOne({ email });
+      if (!user) {
+        const staff = await STAFF.findOne({ email });
+
+        if (!staff) {
+          return res.status(400).json({ message: "User not registered" });
+        }
+
+        if (!staff.audit?.isActive || staff.audit?.isDeleted) {
+          return res.status(403).json({
+            success: false,
+            message: "Staff profile disabled. Branch admin must enable it.",
+          });
+        }
+
+        if (!password) {
+          return res.status(400).json({ message: "Invalid password" });
+        }
+
+        const token = jwt.sign(
+          {
+            id: staff._id,
+            role: staff.role?.role || "StaffAdmin",
+            staff: true,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "7d" },
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "Staff login successful",
+          token,
+          role: "StaffAdmin",
+          staff,
+        });
+      }
+
+      if (!user.audit?.isVerified) {
         return res.status(400).json({ message: "Verify your account first" });
+      }
 
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
+      if (!isMatch) {
         return res.status(400).json({ message: "Invalid password" });
+      }
 
       const token = jwt.sign(
-        { id: user._id, email: user.email },
+        {
+          id: user._id,
+          role: user.role?.role || "user",
+        },
         process.env.JWT_SECRET,
         { expiresIn: "7d" },
       );
 
       return res.status(200).json({
         success: true,
-        message: "Login successful with password",
+        message: "Login successful",
         token,
-        userType: user.userType,
+        role: user.role?.role,
         user,
       });
     }
 
     if (loginType === "otp") {
-      if (!email)
+      if (!email) {
         return res
           .status(400)
           .json({ message: "Email required for OTP login" });
+      }
 
       const user = await USER.findOne({ email });
-      if (!user)
+      if (!user) {
         return res.status(400).json({ message: "User not registered" });
-      if (!user.isVerifed)
+      }
+
+      if (!user.audit?.isVerified) {
         return res.status(400).json({ message: "Verify your account first" });
+      }
 
       await sendOTP(email, user.firstName, "login");
 
       return res.status(200).json({
         success: true,
-        message: "OTP sent for login",
+        message: "OTP sent successfully for login",
       });
     }
 
     if (loginType === "child") {
-      if (!userId || !pin)
+      if (!userId || !pin) {
         return res
           .status(400)
           .json({ message: "User ID and PIN are required" });
+      }
 
-      const parent = await USER.findOne({
-        "children.userId": userId,
-      });
-
-      if (!parent)
+      const parent = await USER.findOne({ "children.userId": userId });
+      if (!parent) {
         return res.status(404).json({ message: "Child account not found" });
+      }
 
       const child = parent.children.find((c) => c.userId === userId);
 
-      if (!child || child.pin !== pin)
+      if (!child || child.pin !== pin) {
         return res.status(400).json({ message: "Invalid userId or PIN" });
+      }
 
       const token = jwt.sign(
         {
-          parentId: parent._id,
           childId: child._id,
-          userId: child.userId,
-          relation: child.relation,
+          parentId: parent._id,
+          role: "child",
         },
         process.env.JWT_SECRET,
         { expiresIn: "7d" },
@@ -187,124 +246,193 @@ export const resetPassword = async (req, res) => {
 
 export const profile = async (req, res) => {
   try {
-    const user = await USER.findById(req.user._id).lean();
+    const role = req.user.role;
 
-    if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
+    if (role === "child") {
+      const parent = await USER.findById(req.user.parentId).lean();
+      if (!parent)
+        return res
+          .status(404)
+          .json({ success: false, message: "Parent not found" });
+
+      const child = parent.children?.find(
+        (c) => c._id.toString() === req.user.childId,
+      );
+
+      if (!child)
+        return res
+          .status(404)
+          .json({ success: false, message: "Child not found" });
+
+      const childPhoto = await USER_PHOTO.findOne({
+        childId: child._id,
+        photoType: "child",
+      }).lean();
+
+      const childPhotoBase64 = childPhoto?.data
+        ? `data:${childPhoto.contentType};base64,${childPhoto.data.toString(
+            "base64",
+          )}`
+        : null;
+
+      return res.status(200).json({
+        success: true,
+        message: "Child profile fetched successfully",
+        profile: {
+          firstName: child.firstName,
+          lastName: child.lastName,
+          userId: child.userId,
+          gender: child.gender,
+          relation: child.relation,
+          dateOfBirth: child.dateOfBirth,
+          pin: child.pin,
+          photo: childPhotoBase64,
+          role: "child",
+        },
+      });
     }
+
+    const user = await USER.findById(req.user.id).lean();
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+
+    if (user.password) delete user.password;
+
+    const address = await Address.findOne({ userId: user._id }).lean();
 
     const userPhoto = await USER_PHOTO.findOne({
       userId: user._id,
       photoType: "user",
-    });
+    }).lean();
 
-    let userPhotoBase64 = null;
-    if (userPhoto?.data) {
-      userPhotoBase64 = `data:${
-        userPhoto.contentType
-      };base64,${userPhoto.data.toString("base64")}`;
-    }
+    const userPhotoBase64 = userPhoto?.data
+      ? `data:${userPhoto.contentType};base64,${userPhoto.data.toString(
+          "base64",
+        )}`
+      : null;
 
-    if (user.children?.length > 0) {
-      const childIds = user.children.map((child) => child._id);
+    let childrenResponse = [];
+    if (Array.isArray(user.children) && user.children.length > 0) {
+      const childIds = user.children.map((c) => c._id);
 
       const childPhotos = await USER_PHOTO.find({
-        childId: { $in: childIds },
+        childId: childIds,
         photoType: "child",
-      });
+      }).lean();
 
-      user.children = user.children.map((child) => {
+      childrenResponse = user.children.map((child) => {
         const photoDoc = childPhotos.find(
-          (photo) => photo.childId?.toString() === child._id.toString(),
+          (p) => p.childId.toString() === child._id.toString(),
         );
 
-        const photoBase64 =
-          photoDoc && photoDoc.data
-            ? `data:${photoDoc.contentType};base64,${photoDoc.data.toString(
-                "base64",
-              )}`
-            : null;
+        const childImage = photoDoc?.data
+          ? `data:${photoDoc.contentType};base64,${photoDoc.data.toString(
+              "base64",
+            )}`
+          : null;
 
         return {
           _id: child._id,
           firstName: child.firstName,
           lastName: child.lastName,
           gender: child.gender,
-          relation: child.relation,
           dateOfBirth: child.dateOfBirth,
+          relation: child.relation,
           pin: child.pin,
-          photo: photoBase64,
+          userId: child.userId,
+          photo: childImage,
         };
       });
     }
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Profile fetched successfully",
+      message: "Profile fetched",
       profile: {
         ...user,
+        role: user.role?.role || role,
         photo: userPhotoBase64,
+        address: address || null,
+        children: childrenResponse,
       },
     });
-  } catch (error) {
-    console.error("Profile API Error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: error.message });
+  } catch (err) {
+    console.log("Profile API Error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 
 export const editProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const updateData = { ...req.body };
+    const userId = req.user.id;
+    const { address, ...updateData } = req.body;
 
     if (updateData.email) delete updateData.email;
 
     const existingUser = await USER.findById(userId);
+    if (!existingUser)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
-    if (updateData.phone && updateData.phone === existingUser.phone) {
-      delete updateData.phone;
-    }
-
-    if (updateData.phone) {
+    if (updateData.phone && updateData.phone !== existingUser.phone) {
       const duplicate = await USER.findOne({
         phone: updateData.phone,
         _id: { $ne: userId },
       });
-      if (duplicate) {
+      if (duplicate)
         return res
           .status(400)
           .json({ success: false, message: "Phone number already exists" });
-      }
+    } else {
+      delete updateData.phone;
     }
 
     if (updateData.password) {
-      const hashPassword = await bcrypt.hash(updateData.password, 10);
-      updateData.password = hashPassword;
+      updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
-    const updatedUser = await USER.findByIdAndUpdate(
-      userId,
-      { $set: updateData },
-      { new: true, runValidators: true, fields: "-password" },
-    );
+    Object.assign(existingUser, updateData);
+    await existingUser.save();
 
-    if (!updatedUser) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
+    let addressDoc;
+
+    if (address) {
+      address.email = existingUser.email;
+
+      const existAddress = await Address.findOne({ userId });
+
+      if (existAddress) {
+        addressDoc = await Address.findOneAndUpdate(
+          { userId },
+          { $set: address },
+          { new: true },
+        );
+      } else {
+        addressDoc = new Address({ ...address, userId });
+        await addressDoc.save();
+      }
+    } else {
+      addressDoc = await Address.findOne({ userId });
     }
+
+    const mergedProfile = {
+      ...existingUser.toObject(),
+      address: addressDoc ? addressDoc.toObject() : null,
+    };
 
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: updatedUser,
+      user: mergedProfile,
     });
   } catch (error) {
-    console.error("Edit Profile Error:", error);
+    console.log("Edit Profile Error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

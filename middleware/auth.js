@@ -1,32 +1,60 @@
-import jwt from "jsonwebtoken";
-import USER from "../models/auth/user.js";
+const jwt = require("jsonwebtoken");
+const USER = require("../models/auth/user");
+const STAFF = require("../models/staff/staff");
 
-export default async (req, res, next) => {
+exports.isAuthenticated = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
-    if (!token)
-      return res
-        .status(401)
-        .json({ success: false, message: "Unauthorized - Token missing" });
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Token missing" });
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded?.id)
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid token payload" });
 
-    const user = await USER.findById(decoded.id).select("-password");
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (!decoded?.id) {
+      return res.status(401).json({ success: false, message: "Invalid token" });
+    }
 
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error("JWT Auth Error:", error.message);
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid or expired token" });
+    let user = await USER.findById(decoded.id).select("-password");
+
+    if (user) {
+      req.user = {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        role: user.role?.role || "user",
+        isStaff: false,
+      };
+      return next();
+    }
+
+    let staff = await STAFF.findById(decoded.id).select("-password");
+
+    if (staff) {
+      req.user = {
+        id: staff._id,
+        email: staff.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        phone: staff.phone,
+        role: staff.role?.role || "StaffAdmin",
+        branchId: staff.branchId,
+        isStaff: true,
+      };
+      return next();
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+  } catch (err) {
+    console.log("Auth Error:", err);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
 };

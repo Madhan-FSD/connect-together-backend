@@ -15,7 +15,11 @@ import upload from "../../middleware/upload.js";
 import {
   validateSignUp,
   loginValidate,
-} from "../../validations/user.validate.js";
+} = require("../../validations/user.validate");
+const { isAuthenticated } = require("../../middleware/auth");
+const { updatePhoto } = require("../../controllers/photos/index");
+const upload = require("../../middleware/upload");
+const { googleLogin } = require("../../controllers/auth/googleLogin");
 
 const router = express.Router();
 
@@ -37,16 +41,9 @@ router.post("/forgot/reset", Auth.resetPassword);
 
 // OTP management
 router.post("/otp/resend", OTP.resendOtp);
-
-// Social authentication
-router.post("/google-login", googleLogin);
-
-// ============================
-// User Profile Routes (Protected)
-// ============================
-
-router.get("/profile", authMiddleware, Auth.profile);
-router.patch("/edit-profile", authMiddleware, Auth.editProfile);
+router.post("/onboarding", onBoarding.onBoarding);
+router.get("/profile", isAuthenticated, Auth.profile);
+router.patch("/edit-profile", isAuthenticated, Auth.editProfile);
 router.post("/update-photo", upload.single("photo"), updatePhoto);
 
 // ============================

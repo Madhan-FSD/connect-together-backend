@@ -15,7 +15,6 @@ const DEFAULT_LAST_NAME = "User";
 // Initialize Google OAuth client
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-
 const googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -45,21 +44,11 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    // Check if user exists
-    let user = await USER.findOne({ email });
-    let isNewUser = false;
-
-    if (user) {
-      // Update existing user
-      user = await updateExistingUser(user, googleId);
-    } else {
-      // Create new user
-      user = await createGoogleUser({ googleId, email, name, picture });
-      isNewUser = true;
-    }
-
-    // Generate authentication token
-    const token = generateAuthToken(user);
+    const token = jwt.sign(
+      { id: user._id, email: user.email, userType: user.userType },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
 
     return res.status(200).json({
       success: true,
