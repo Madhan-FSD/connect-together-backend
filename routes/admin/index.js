@@ -7,6 +7,7 @@ const Businnes = require("../../controllers/admin/business/addorUpdateBusiness")
 const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
 const Branch = require("../../controllers/admin/branch/createBramch");
 const Staff = require("../../controllers/admin/staff/createStaff");
+const courseCtrl = require("../../controllers/admin/course/course");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -118,5 +119,15 @@ router.delete(
   Staff.deleteStaff,
 );
 router.get("/staff-profile/:staffId", isAuthenticated, Staff.getStaffProfile);
+
+router.post(
+  "/create-course",
+  isAuthenticated,
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },
+  ]),
+  courseCtrl.createCourse,
+);
 
 module.exports = router;
