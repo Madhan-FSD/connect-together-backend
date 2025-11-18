@@ -2,19 +2,18 @@ const mongoose = require("mongoose");
 
 const CompanyInformationSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Users",
       required: true,
     },
-
     entityId: {
       type: String,
       unique: true,
       required: true,
       index: true,
     },
-
+    audit: auditSchema,
     role: {
       type: String,
       enum: ["entityAdmin", "BranchAdmin", "OpratorAdmin", "StaffAdmin"],

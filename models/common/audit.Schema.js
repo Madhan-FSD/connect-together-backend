@@ -5,36 +5,27 @@ const auditSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Users",
-      required: false,
+      required: true,
     },
-
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Users",
-      required: false,
+      required: true,
     },
-
-    deletedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
-      required: false,
-    },
-
     isActive: {
       type: Boolean,
       default: true,
     },
-
     isDeleted: {
       type: Boolean,
       default: false,
     },
-
     isVerified: {
       type: Boolean,
       default: false,
     },
-    hasChild: { type: Boolean, default: false },
+    updatedAt: { type: Date, default: Date.now },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );

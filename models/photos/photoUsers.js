@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import * as auditSchema from "../common/audit.Schema";
 
 const userPhotoSchema = new mongoose.Schema(
   {
@@ -26,6 +27,7 @@ const userPhotoSchema = new mongoose.Schema(
       required: true,
     },
   },
+  audit: auditSchema,
   { timestamps: true },
 );
 

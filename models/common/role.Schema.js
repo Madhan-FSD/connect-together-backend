@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditSchema = require("./audit.Schema");
 
 const RoleSchema = new mongoose.Schema(
   {
@@ -15,6 +16,7 @@ const RoleSchema = new mongoose.Schema(
       ],
       default: "user",
     },
+    audit: auditSchema,
   },
   { timestamps: true },
 );

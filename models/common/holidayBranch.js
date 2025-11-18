@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const auditSchema = require("./audit.Schema");
 
 const HolidayBranchSchema = new mongoose.Schema(
   {
@@ -28,6 +29,7 @@ const HolidayBranchSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    audit: auditSchema,
   },
   { timestamps: true },
 );
