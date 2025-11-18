@@ -18,7 +18,6 @@ exports.addCompanyInformation = async (req, res) => {
     }
 
     const {
-      companyName,
       established,
       communicationSource,
       sellerType,
@@ -38,7 +37,6 @@ exports.addCompanyInformation = async (req, res) => {
     } = req.body;
 
     if (
-      !companyName ||
       !established ||
       !communicationSource ||
       !sellerType ||
@@ -53,24 +51,13 @@ exports.addCompanyInformation = async (req, res) => {
       });
     }
 
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Company logo is required",
-      });
-    }
-
-    const companyLogo = req.file.buffer;
-
     const newCompany = await COMPANY_DATA.create({
       entityId: uuidv4(),
       user: entityAdminId,
-      companyName,
       established,
       communicationSource,
       sellerType,
       headquarters,
-      companyLogo,
       description,
       website,
       contactEmail,
@@ -146,8 +133,14 @@ exports.updateCompanyInformation = async (req, res) => {
       });
     }
 
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No data provided to update",
+      });
+    }
+
     const allowedFields = [
-      "companyName",
       "established",
       "communicationSource",
       "sellerType",
@@ -172,22 +165,13 @@ exports.updateCompanyInformation = async (req, res) => {
       }
     });
 
-    if (req.file) {
-      company.companyLogo = req.file.buffer;
-    }
-
     await company.save();
-
-    const companyLogoBase64 = company.companyLogo
-      ? `data:image/png;base64,${company.companyLogo.toString("base64")}`
-      : null;
 
     return res.json({
       success: true,
       message: "Company information updated successfully",
       data: {
         ...company._doc,
-        companyLogo: companyLogoBase64,
       },
     });
   } catch (error) {

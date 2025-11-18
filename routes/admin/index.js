@@ -47,7 +47,6 @@ router.get("/users-list", isAuthenticated, Users.userList);
 router.post(
   "/create-company-information",
   isAuthenticated,
-  upload.single("companyLogo"),
   CompanyInfo.addCompanyInformation,
 );
 router.get(
@@ -58,7 +57,6 @@ router.get(
 router.put(
   "/update-company-information/:id",
   isAuthenticated,
-  upload.single("companyLogo"),
   CompanyInfo.updateCompanyInformation,
 );
 

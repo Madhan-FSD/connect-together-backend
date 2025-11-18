@@ -7,10 +7,6 @@ const CompanyInformationSchema = new mongoose.Schema(
       ref: "Users",
       required: true,
     },
-    companyName: {
-      type: String,
-      required: true,
-    },
 
     entityId: {
       type: String,
@@ -42,11 +38,6 @@ const CompanyInformationSchema = new mongoose.Schema(
 
     headquarters: {
       type: String,
-      required: true,
-    },
-
-    companyLogo: {
-      type: Buffer,
       required: true,
     },
 
