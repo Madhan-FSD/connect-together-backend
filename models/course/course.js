@@ -9,7 +9,6 @@ const courseSchema = new mongoose.Schema({
   description: String,
 
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
-  staffId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
 
   category: String,
   subCategory: String,

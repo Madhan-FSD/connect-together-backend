@@ -115,15 +115,29 @@ router.put("/update-staff/:id", isAuthenticated, Staff.updateStaff);
 router.delete("/staff-profile-deleted/:id", isAuthenticated, Staff.deleteStaff);
 router.get("/staff-profile", isAuthenticated, Staff.getMyStaffProfile);
 
-// router.post(
-//   "/create-course",
-//   isAuthenticated,
-//   upload.fields([
-//     { name: "thumbnail", maxCount: 1 },
-//     { name: "coverImage", maxCount: 1 },
-//   ]),
-//   courseCtrl.createCourse,
-// );
-// router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
+router.post(
+  "/create-course",
+  isAuthenticated,
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },
+  ]),
+  courseCtrl.createCourse,
+);
+router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
+router.put(
+  "/update-course/:courseId",
+  isAuthenticated,
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },
+  ]),
+  courseCtrl.updateCourse,
+);
+router.delete(
+  "/delete-course/:courseId",
+  isAuthenticated,
+  courseCtrl.deleteCourse,
+);
 
 module.exports = router;

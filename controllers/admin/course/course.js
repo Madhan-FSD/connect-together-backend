@@ -1,188 +1,316 @@
-// const Course = require("../../../models/course/course");
-// const Branch = require("../../../models/branch/branch");
-// const Staff = require("../../../models/staff/staff");
-// const USER = require("../../../models/auth/user");
-// const { v4: uuidv4 } = require("uuid");
+const Course = require("../../../models/course/course");
+const Branch = require("../../../models/branch/branch");
+const USER = require("../../../models/auth/user");
+const { v4: uuidv4 } = require("uuid");
 
-// exports.createCourse = async (req, res) => {
-//   try {
-//     const {
-//       title,
-//       description,
-//       category,
-//       subCategory,
-//       courseType,
-//       language,
-//       level,
-//       basePrice,
-//       branchId,
-//     } = req.body;
+exports.createCourse = async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      category,
+      subCategory,
+      courseType,
+      language,
+      level,
+      basePrice,
+      branchId,
+      courseContent,
+    } = req.body;
 
-//     if (!title || !description || !basePrice || !courseType) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Missing required fields",
-//       });
-//     }
+    if (!title || !description || !basePrice || !courseType) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
 
-//     const role = req.user.role;
-//     const userId = req.user.id;
+    const role = req.user.role;
+    const userId = req.user.id;
 
-//     if (!["entityAdmin", "BranchAdmin", "StaffAdmin"].includes(role)) {
-//       return res.status(403).json({
-//         success: false,
-//         message:
-//           "Only Entity Admin, Branch Admin or Staff Admin can create courses",
-//       });
-//     }
+    if (!["entityAdmin", "BranchAdmin", "StaffAdmin"].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can create courses",
+      });
+    }
 
-//     let thumbnail = req.files?.thumbnail ? req.files.thumbnail[0].buffer : null;
-//     let coverImage = req.files?.coverImage
-//       ? req.files.coverImage[0].buffer
-//       : null;
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required",
+      });
+    }
 
-//     let branchDoc = null;
+    const branchDoc = await Branch.findOne({
+      branchId: branchId,
+      "audit.isDeleted": false,
+    });
 
-//     if (role === "BranchAdmin" || role === "StaffAdmin") {
-//       if (!branchId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "branchId required for BranchAdmin or StaffAdmin",
-//         });
-//       }
+    if (!branchDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
 
-//       branchDoc = await Branch.findOne({ branchId });
+    if (role === "BranchAdmin") {
+      if (branchDoc.user.toString() !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "BranchAdmin can only create courses in their own branch",
+        });
+      }
+    }
 
-//       if (!branchDoc) {
-//         return res.status(404).json({
-//           success: false,
-//           message: "Branch not found",
-//         });
-//       }
+    if (role === "StaffAdmin") {
+      const staff = await USER.findOne({
+        _id: userId,
+        branchId: branchId,
+        isStaff: true,
+        "audit.isDeleted": false,
+        "audit.isActive": true,
+      });
 
-//       if (branchDoc.audit.isDeleted === true) {
-//         return res.status(403).json({
-//           success: false,
-//           message: "Entity admin will allow you to use this branch",
-//         });
-//       }
+      if (!staff) {
+        return res.status(403).json({
+          success: false,
+          message: "Staff is not allowed to create courses in this branch",
+        });
+      }
+    }
 
-//       if (role === "StaffAdmin") {
-//         const staff = await Staff.findOne({
-//           user: userId,
-//           branchId: branchId,
-//           "audit.isActive": true,
-//           "audit.isDeleted": false,
-//         });
-//       }
-//     }
+    let contentArr = [];
+    if (courseContent) {
+      try {
+        contentArr = JSON.parse(courseContent);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid courseContent JSON",
+        });
+      }
+    }
 
-//     const creator = await USER.findById(userId).select(
-//       "firstName lastName email role phone",
-//     );
+    const newCourse = await Course.create({
+      courseId: uuidv4(),
+      title,
+      description,
+      category,
+      subCategory,
+      courseType,
+      language: typeof language === "string" ? language.split(",") : language,
+      level,
+      basePrice,
 
-//     let courseContent = [];
+      branchId: branchDoc._id,
+      staffId: role === "StaffAdmin" ? userId : null,
 
-//     if (req.body.courseContent) {
-//       try {
-//         courseContent = JSON.parse(req.body.courseContent);
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Invalid courseContent JSON format",
-//         });
-//       }
-//     }
+      createdBy: userId,
+      createdByRole: role,
+      courseContent: contentArr,
 
-//     const newCourse = await Course.create({
-//       courseId: uuidv4(),
-//       title,
-//       description,
-//       category,
-//       subCategory,
-//       courseType,
-//       language: typeof language === "string" ? language.split(",") : language,
-//       level,
-//       basePrice,
-//       thumbnail,
-//       coverImage,
-//       branchId: branchDoc ? branchDoc._id : null,
-//       staffId: role === "StaffAdmin" ? userId : null,
-//       createdBy: userId,
-//       createdByRole: role,
-//       courseContent,
-//       audit: {
-//         createdBy: userId,
-//         updatedBy: userId,
-//         isActive: true,
-//         isDeleted: false,
-//         isVerified: false,
-//       },
-//     });
+      audit: {
+        createdBy: userId,
+        updatedBy: userId,
+        isActive: true,
+        isDeleted: false,
+      },
+    });
 
-//     return res.status(201).json({
-//       success: true,
-//       message: "Course created successfully",
-//       createdBy: {
-//         id: userId,
-//         role: role,
-//         details: creator,
-//       },
-//       data: newCourse,
-//     });
-//   } catch (error) {
-//     console.log("Create Course Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
+    return res.status(201).json({
+      success: true,
+      message: "Course created successfully",
+      data: newCourse,
+    });
+  } catch (error) {
+    console.log("Create Course Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-// exports.getCourses = async (req, res) => {
-//   try {
-//     const role = req.user.role;
-//     const userId = req.user.id;
+exports.getCourses = async (req, res) => {
+  try {
+    const role = req.user.role;
+    const userId = req.user.id;
 
-//     let filter = {};
+    let filter = {};
 
-//     if (role === "entityAdmin") {
-//       filter = {};
-//     } else if (role === "BranchAdmin") {
-//       const branch = await Branch.findOne({ user: userId });
+    if (role === "entityAdmin") {
+      filter = {};
+    }
 
-//       if (!branch) {
-//         return res.status(404).json({
-//           success: false,
-//           message: "Branch not found for this admin",
-//         });
-//       }
+    if (role === "BranchAdmin") {
+      const branch = await Branch.findOne({ user: userId });
 
-//       filter = { branchId: branch._id };
-//     } else if (role === "StaffAdmin") {
-//       filter = { createdBy: userId };
-//     } else {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Not authorized to view courses",
-//       });
-//     }
+      if (!branch) {
+        return res.status(404).json({
+          success: false,
+          message: "Branch not found for this BranchAdmin",
+        });
+      }
 
-//     const courses = await Course.find(filter)
-//       .populate("branchId", "branchName branchCode")
-//       .populate("createdBy", "firstName lastName email role")
-//       .lean();
+      filter = { branchId: branch._id };
+    }
 
-//     return res.status(200).json({
-//       success: true,
-//       count: courses.length,
-//       data: courses,
-//     });
-//   } catch (error) {
-//     console.log("Get Courses Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
+    if (role === "StaffAdmin") {
+      filter = { createdBy: userId };
+    }
+
+    filter["audit.isDeleted"] = false;
+
+    const courses = await Course.find(filter)
+      .populate("createdBy", "firstName lastName email role")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses,
+    });
+  } catch (error) {
+    console.log("Get Courses Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updateCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const course = await Course.findOne({ courseId });
+
+    if (!course || course.audit.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    let isAllowed = false;
+
+    if (role === "entityAdmin") isAllowed = true;
+
+    if (role === "BranchAdmin") {
+      const branch = await Branch.findOne({ user: userId });
+      if (branch && branch._id.toString() === course.branchId.toString()) {
+        isAllowed = true;
+      }
+    }
+
+    if (role === "StaffAdmin") {
+      if (course.createdBy.toString() === userId) {
+        isAllowed = true;
+      }
+    }
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to edit this course",
+      });
+    }
+
+    const allowed = [
+      "title",
+      "description",
+      "category",
+      "subCategory",
+      "courseType",
+      "language",
+      "level",
+      "basePrice",
+      "courseContent",
+    ];
+
+    allowed.forEach((key) => {
+      if (req.body[key] !== undefined) {
+        if (key === "courseContent") {
+          try {
+            course.courseContent = JSON.parse(req.body[key]);
+          } catch (e) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid JSON for courseContent",
+            });
+          }
+        } else {
+          course[key] = req.body[key];
+        }
+      }
+    });
+
+    course.audit.updatedBy = userId;
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Course updated successfully",
+      data: course,
+    });
+  } catch (error) {
+    console.log("Update Course Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.deleteCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const course = await Course.findOne({ courseId });
+
+    if (!course || course.audit.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    let isAllowed = false;
+
+    if (role === "entityAdmin") {
+      isAllowed = true;
+    }
+
+    if (role === "BranchAdmin") {
+      const branch = await Branch.findOne({ user: userId });
+      if (branch && branch._id.toString() === course.branchId.toString()) {
+        isAllowed = true;
+      }
+    }
+
+    if (role === "StaffAdmin") {
+      if (course.createdBy.toString() === userId) {
+        isAllowed = true;
+      }
+    }
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this course",
+      });
+    }
+
+    course.audit.isDeleted = true;
+    course.audit.updatedBy = userId;
+
+    await course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Course deleted successfully",
+    });
+  } catch (error) {
+    console.log("Delete Course Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
