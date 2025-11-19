@@ -24,23 +24,20 @@ exports.createBranch = async (req, res) => {
     parsedBranchTime = branchTime ? JSON.parse(branchTime) : null;
     parsedHolidayData = holidayData ? JSON.parse(holidayData) : null;
 
-    // 1️⃣ Fix: Add userId inside contactInfo
     parsedContactInfo.userId = req.user.id;
 
-    // Generate Branch ID first
     const generatedBranchId = uuidv4();
 
-    // 2️⃣ Fix: Add branchId & unquicId to holiday data
     if (parsedHolidayData) {
       parsedHolidayData.branchId = generatedBranchId;
       parsedHolidayData.unquicId = uuidv4();
 
-      if (parsedHolidayData.hoildayTypes === "full_holiday") {
+      if (parsedHolidayData.hoildayTypes === true) {
         parsedHolidayData.openingTime = null;
         parsedHolidayData.closingTime = null;
       }
 
-      if (parsedHolidayData.hoildayTypes === "half_holiday") {
+      if (parsedHolidayData.hoildayTypes === false) {
         if (!parsedHolidayData.openingTime || !parsedHolidayData.closingTime) {
           return res.status(400).json({
             success: false,
@@ -426,23 +423,9 @@ exports.softDeleteBranch = async (req, res) => {
       });
     }
 
-    const deletedBranch = await BRANCH.findByIdAndUpdate(
-      branch._id,
-      {
-        $set: {
-          "audit.isActive": false,
-          "audit.isDeleted": true,
-          "audit.deletedBy": req.user.id,
-          "audit.updatedBy": req.user.id,
-        },
-      },
-      { new: true },
-    );
-
     return res.status(200).json({
       success: true,
       message: "Branch soft-deleted successfully",
-      data: deletedBranch,
     });
   } catch (error) {
     console.log("Soft Delete Branch Error:", error);

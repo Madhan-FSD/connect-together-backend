@@ -111,28 +111,19 @@ router.delete(
 );
 
 router.post("/create-staff", isAuthenticated, Staff.createStaff);
-router.put("/update-staff/:staffId", isAuthenticated, Staff.updateStaff);
-router.get(
-  "/get-staff-profile-for-branch/:branchId",
-  isAuthenticated,
-  Staff.getStaffList,
-);
-router.delete(
-  "/staff-profile-deleted/:staffId",
-  isAuthenticated,
-  Staff.deleteStaff,
-);
-router.get("/staff-profile/:staffId", isAuthenticated, Staff.getStaffProfile);
+router.put("/update-staff/:id", isAuthenticated, Staff.updateStaff);
+router.delete("/staff-profile-deleted/:id", isAuthenticated, Staff.deleteStaff);
+router.get("/staff-profile", isAuthenticated, Staff.getMyStaffProfile);
 
-router.post(
-  "/create-course",
-  isAuthenticated,
-  upload.fields([
-    { name: "thumbnail", maxCount: 1 },
-    { name: "coverImage", maxCount: 1 },
-  ]),
-  courseCtrl.createCourse,
-);
-router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
+// router.post(
+//   "/create-course",
+//   isAuthenticated,
+//   upload.fields([
+//     { name: "thumbnail", maxCount: 1 },
+//     { name: "coverImage", maxCount: 1 },
+//   ]),
+//   courseCtrl.createCourse,
+// );
+// router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
 
 module.exports = router;

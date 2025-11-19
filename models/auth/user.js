@@ -61,7 +61,10 @@ const UserSchema = new mongoose.Schema(
     photo: { type: String },
     audit: auditSchema,
     role: roleSchema,
+    isStaff: { type: Boolean, default: false },
+    branchId: { type: String },
   },
+
   { timestamps: true },
 );
 

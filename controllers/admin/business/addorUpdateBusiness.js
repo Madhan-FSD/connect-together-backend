@@ -23,7 +23,6 @@ exports.createBusiness = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "You have already created this business data",
-        // businessId: existingBusiness.businessId,
       });
     }
 
@@ -220,22 +219,9 @@ exports.softDeleteBusiness = async (req, res) => {
       });
     }
 
-    const deletedBusiness = await BUSINESS.findByIdAndUpdate(
-      business._id,
-      {
-        $set: {
-          "audit.isActive": false,
-          "audit.isDeleted": true,
-          "audit.deletedBy": req.user.id,
-        },
-      },
-      { new: true },
-    );
-
     return res.status(200).json({
       success: true,
       message: "Business soft-deleted successfully",
-      business: deletedBusiness,
     });
   } catch (err) {
     console.log("Soft Delete Error:", err);
