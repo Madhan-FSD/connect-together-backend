@@ -3,6 +3,7 @@ const router = express.Router();
 const Auth = require("../../controllers/auth/users");
 const onBoarding = require("../../controllers/auth/onBoarding");
 const OTP = require("../../controllers/auth/otp");
+const PROFILE = require("../../controllers/auth/profile");
 const {
   validateSignUp,
   loginValidate,
@@ -20,8 +21,8 @@ router.post("/forgot", Auth.forgetPassword);
 router.post("/forgot/reset", Auth.resetPassword);
 router.post("/otp/resend", OTP.resendOtp);
 router.post("/onboarding", onBoarding.onBoarding);
-router.get("/profile", isAuthenticated, Auth.profile);
-router.patch("/edit-profile", isAuthenticated, Auth.editProfile);
+router.get("/profile", isAuthenticated, PROFILE.profile);
+router.patch("/edit-profile", isAuthenticated, PROFILE.editProfile);
 router.post("/update-photo", upload.single("photo"), updatePhoto);
 router.post("/google-login", googleLogin);
 module.exports = router;

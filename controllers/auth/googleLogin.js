@@ -3,6 +3,11 @@ const USER = require("../../models/auth/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
+const {
+  responseHandler,
+  errorResponse,
+  STATUS,
+} = require("../../utils/responseHandler");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -11,9 +16,7 @@ exports.googleLogin = async (req, res) => {
     const { idToken } = req.body;
 
     if (!idToken)
-      return res
-        .status(400)
-        .json({ success: false, message: "idToken is required" });
+      return responseHandler(res, STATUS.BAD, "ID Token is required");
 
     const ticket = await client.verifyIdToken({
       idToken,
@@ -24,9 +27,11 @@ exports.googleLogin = async (req, res) => {
     const { sub: googleId, email, name, picture } = payload;
 
     if (!email)
-      return res
-        .status(400)
-        .json({ success: false, message: "Email not found in Google account" });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Google account does not have an email",
+      );
 
     let user = await USER.findOne({ email });
 
@@ -65,8 +70,7 @@ exports.googleLogin = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    return res.status(200).json({
-      success: true,
+    return responseHandler(res, STATUS.BAD, "Google login successful", {
       message: user.googleId
         ? "Google login successful"
         : "Google signup successful",
@@ -75,10 +79,6 @@ exports.googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.log("Google Login Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error during Google login",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
