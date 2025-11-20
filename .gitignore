@@ -1,2 +1,10 @@
 .env
 node_modules
+
+seed.js
+venv/
+ml/model/
+*.pyc
+__pycache__/
+training_data.csv
+requirements.txt

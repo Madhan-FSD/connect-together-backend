@@ -82,39 +82,6 @@ export const sendConnectionRequest = async (req, res) => {
   }
 };
 
-export const getPendingRequests = async (req, res) => {
-  const userId = req.userId;
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-
-  try {
-    const requests = await Connection.find({
-      recipient: userId,
-      status: "PENDING",
-    })
-      .populate("requester", USER_POPULATION_FIELDS)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const totalRequests = await Connection.countDocuments({
-      recipient: userId,
-      status: "PENDING",
-    });
-
-    return res.status(200).json({
-      requests,
-      total: totalRequests,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(totalRequests / limit),
-    });
-  } catch (error) {
-    console.error("Error fetching pending requests:", error);
-    return res.status(500).json({ error: "Failed to fetch pending requests." });
-  }
-};
-
 export const acceptConnectionRequest = async (req, res) => {
   const userId = req.userId;
   const { connectionId } = req.params;
@@ -275,7 +242,11 @@ export const blockUser = async (req, res) => {
 export const getConnections = async (req, res) => {
   const { userId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const parsedLimit = parseInt(limit);
+  const skip = (parseInt(page) - 1) * parsedLimit;
+
+  const POPULATION_FIELDS =
+    "firstName lastName email avatar profileHeadline connectionCount role";
 
   try {
     const connections = await Connection.find({
@@ -284,10 +255,10 @@ export const getConnections = async (req, res) => {
         { recipient: userId, status: "ACCEPTED" },
       ],
     })
-      .populate("requester", USER_POPULATION_FIELDS)
-      .populate("recipient", USER_POPULATION_FIELDS)
+      .populate("requester", POPULATION_FIELDS)
+      .populate("recipient", POPULATION_FIELDS)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parsedLimit);
 
     const connectionsList = connections.map((conn) => {
       const connectedUser =
@@ -417,14 +388,17 @@ export const getSuggestedConnections = async (req, res) => {
 
       role: targetUserRole === "CHILD" ? "CHILD" : { $ne: "CHILD" },
     })
-      .select("firstName lastName email avatar profileHeadline connectionCount")
+
+      .select(
+        "firstName lastName email avatar profileHeadline connectionCount role"
+      )
       .sort({ connectionCount: -1 })
       .limit(connectionLimit)
       .lean();
 
     res
       .status(200)
-      .json({ suggestions, isChildContext: targetUserRole === "CHILD" });
+      .json({ suggestions, isChildContext: targetUserRole === "CHILD" }); // 'suggestions' now includes 'role'
   } catch (error) {
     console.error("Error fetching suggestions:", error);
     res.status(500).json({ error: "Failed to fetch suggestions." });
@@ -434,7 +408,11 @@ export const getSuggestedConnections = async (req, res) => {
 export const getSentPendingRequests = async (req, res) => {
   const userId = req.userId;
   const { page = 1, limit = 10 } = req.query;
-  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const parsedLimit = parseInt(limit);
+  const skip = (parseInt(page) - 1) * parsedLimit;
+
+  const POPULATION_FIELDS =
+    "firstName lastName email avatar profileHeadline connectionCount role";
 
   try {
     const requests = await Connection.find({
@@ -442,10 +420,10 @@ export const getSentPendingRequests = async (req, res) => {
       status: "PENDING",
     })
 
-      .populate("recipient", USER_POPULATION_FIELDS)
+      .populate("recipient", POPULATION_FIELDS)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parsedLimit);
 
     const totalRequests = await Connection.countDocuments({
       requester: userId,
@@ -464,5 +442,66 @@ export const getSentPendingRequests = async (req, res) => {
     return res
       .status(500)
       .json({ error: "Failed to fetch sent pending requests." });
+  }
+};
+
+export const getPendingRequests = async (req, res) => {
+  const userId = req.userId;
+  const { page = 1, limit = 10 } = req.query;
+  const parsedLimit = parseInt(limit);
+  const parsedPage = parseInt(page);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  const POPULATION_FIELDS =
+    "firstName lastName email avatar profileHeadline connectionCount role";
+
+  try {
+    const requests = await Connection.find({
+      recipient: userId,
+      status: "PENDING",
+    })
+
+      .populate("requester", POPULATION_FIELDS)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .lean();
+
+    const totalRequests = await Connection.countDocuments({
+      recipient: userId,
+      status: "PENDING",
+    });
+
+    const requestsWithCounts = await Promise.all(
+      requests.map(async (request) => {
+        if (!request.requester || !request.requester._id) {
+          request.requester.connectionCount = 0;
+          return request;
+        }
+
+        const requesterId = request.requester._id;
+        const idToQuery = new mongoose.Types.ObjectId(requesterId);
+
+        const requesterConnectionsCount = await Connection.countDocuments({
+          $or: [{ requester: idToQuery }, { recipient: idToQuery }],
+          status: "ACCEPTED",
+        });
+
+        request.requester.connectionCount = requesterConnectionsCount;
+
+        return request;
+      })
+    );
+
+    return res.status(200).json({
+      requests: requestsWithCounts,
+      total: totalRequests,
+      page: parsedPage,
+      limit: parsedLimit,
+      totalPages: Math.ceil(totalRequests / parsedLimit),
+    });
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+    return res.status(500).json({ error: "Failed to fetch pending requests." });
   }
 };

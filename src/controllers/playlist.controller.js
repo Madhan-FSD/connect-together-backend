@@ -1,9 +1,9 @@
 import { Playlist } from "../models/playlist.model.js";
-import { Video } from "../models/video.model.js";
+import Video from "../models/video.model.js";
 
 export const createPlaylist = async (req, res) => {
   const userId = req.userId;
-  const { name, description, isPublic } = req.body;
+  const { name, description, playlistVisibility } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: "Playlist name is required." });
@@ -13,7 +13,7 @@ export const createPlaylist = async (req, res) => {
     const newPlaylist = await Playlist.create({
       name,
       description: description || "",
-      isPublic: isPublic !== undefined ? isPublic : true,
+      playlistVisibility: playlistVisibility || "PUBLIC",
       owner: userId,
     });
 
@@ -22,38 +22,53 @@ export const createPlaylist = async (req, res) => {
       playlist: newPlaylist,
     });
   } catch (error) {
-    console.error("Error creating playlist:", error);
     return res.status(500).json({ error: "Failed to create playlist." });
   }
 };
 
 export const getPlaylistDetails = async (req, res) => {
   const { playlistId } = req.params;
+  const viewerId = req.userId;
 
   try {
     const playlist = await Playlist.findById(playlistId)
       .populate("owner", "username")
       .populate({
         path: "videos",
-        select: "title duration thumbnailUrl secureUrl viewsCount",
+        select: "title duration thumbnailUrl secureUrl viewsCount visibility",
       });
 
     if (!playlist) {
       return res.status(404).json({ error: "Playlist not found." });
     }
 
-    if (
-      !playlist.isPublic &&
-      playlist.owner.toString() !== req.userId.toString()
-    ) {
-      return res
-        .status(403)
-        .json({ error: "Access denied. This is a private playlist." });
+    const owner = playlist.owner._id.toString() === viewerId?.toString();
+
+    if (playlist.playlistVisibility === "PRIVATE" && !owner) {
+      return res.status(403).json({ error: "Private playlist." });
+    }
+
+    if (playlist.playlistVisibility === "SUBSCRIBERS_ONLY") {
+      const Follower = (await import("../models/follower.model.js")).default;
+      const isSub = await Follower.findOne({
+        follower: viewerId,
+        followedEntity: playlist.owner._id,
+        followedEntityType: "USER_CHANNEL",
+      });
+      if (!isSub && !owner) {
+        return res.status(403).json({ error: "Subscribers only playlist." });
+      }
+    }
+
+    if (playlist.playlistVisibility === "PAID_ONLY") {
+      const hasPaid = false;
+      if (!hasPaid && !owner) {
+        return res.status(403).json({ error: "Paid only playlist." });
+      }
     }
 
     return res.status(200).json({ playlist });
   } catch (error) {
-    console.error("Error retrieving playlist details:", error);
     return res
       .status(500)
       .json({ error: "Failed to retrieve playlist details." });
@@ -65,12 +80,11 @@ export const getUserPlaylists = async (req, res) => {
 
   try {
     const playlists = await Playlist.find({ owner: userId }).select(
-      "name description isPublic videos"
+      "name description playlistVisibility videos"
     );
 
     return res.status(200).json({ playlists });
   } catch (error) {
-    console.error("Error retrieving user playlists:", error);
     return res.status(500).json({ error: "Failed to retrieve playlists." });
   }
 };
@@ -78,13 +92,7 @@ export const getUserPlaylists = async (req, res) => {
 export const updatePlaylistDetails = async (req, res) => {
   const userId = req.userId;
   const { playlistId } = req.params;
-  const { name, description, isPublic } = req.body;
-
-  if (!name && description === undefined && isPublic === undefined) {
-    return res
-      .status(400)
-      .json({ error: "Provide at least one field to update." });
-  }
+  const { name, description, playlistVisibility } = req.body;
 
   try {
     const playlist = await Playlist.findById(playlistId);
@@ -94,25 +102,31 @@ export const updatePlaylistDetails = async (req, res) => {
     }
 
     if (playlist.owner.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to modify this playlist." });
+      return res.status(403).json({ error: "Not authorized." });
     }
 
     if (name) playlist.name = name;
     if (description !== undefined) playlist.description = description;
-    if (isPublic !== undefined) playlist.isPublic = isPublic;
+
+    if (playlistVisibility) {
+      if (
+        !["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"].includes(
+          playlistVisibility
+        )
+      ) {
+        return res.status(400).json({ error: "Invalid playlist visibility." });
+      }
+      playlist.playlistVisibility = playlistVisibility;
+    }
 
     await playlist.save();
 
-    return res
-      .status(200)
-      .json({ message: "Playlist updated successfully.", playlist });
+    return res.status(200).json({
+      message: "Playlist updated successfully.",
+      playlist,
+    });
   } catch (error) {
-    console.error("Error updating playlist details:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to update playlist details." });
+    return res.status(500).json({ error: "Failed to update playlist." });
   }
 };
 
@@ -130,34 +144,29 @@ export const addVideoToPlaylist = async (req, res) => {
     if (!playlist) {
       return res.status(404).json({ error: "Playlist not found." });
     }
+
     if (playlist.owner.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to modify this playlist." });
+      return res.status(403).json({ error: "Not authorized." });
     }
 
     const video = await Video.findById(videoId);
     if (!video || video.ownerId.toString() !== userId.toString()) {
-      return res
-        .status(404)
-        .json({ error: "Video not found or does not belong to your channel." });
+      return res.status(404).json({ error: "Video not found." });
     }
 
     if (playlist.videos.includes(videoId)) {
-      return res
-        .status(409)
-        .json({ error: "Video is already in this playlist." });
+      return res.status(409).json({ error: "Video already in playlist." });
     }
 
     playlist.videos.push(videoId);
     await playlist.save();
 
-    return res
-      .status(200)
-      .json({ message: "Video added to playlist successfully.", playlist });
+    return res.status(200).json({
+      message: "Video added successfully.",
+      playlist,
+    });
   } catch (error) {
-    console.error("Error adding video to playlist:", error);
-    return res.status(500).json({ error: "Failed to add video to playlist." });
+    return res.status(500).json({ error: "Failed to add video." });
   }
 };
 
@@ -172,13 +181,13 @@ export const removeVideoFromPlaylist = async (req, res) => {
 
   try {
     const playlist = await Playlist.findById(playlistId);
+
     if (!playlist) {
       return res.status(404).json({ error: "Playlist not found." });
     }
+
     if (playlist.owner.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to modify this playlist." });
+      return res.status(403).json({ error: "Not authorized." });
     }
 
     const initialLength = playlist.videos.length;
@@ -187,21 +196,17 @@ export const removeVideoFromPlaylist = async (req, res) => {
     );
 
     if (playlist.videos.length === initialLength) {
-      return res
-        .status(404)
-        .json({ error: "Video was not found in this playlist." });
+      return res.status(404).json({ error: "Video not in playlist." });
     }
 
     await playlist.save();
 
-    return res
-      .status(200)
-      .json({ message: "Video removed from playlist successfully.", playlist });
+    return res.status(200).json({
+      message: "Video removed successfully.",
+      playlist,
+    });
   } catch (error) {
-    console.error("Error removing video from playlist:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to remove video from playlist." });
+    return res.status(500).json({ error: "Failed to remove video." });
   }
 };
 
@@ -217,16 +222,13 @@ export const deletePlaylist = async (req, res) => {
     }
 
     if (playlist.owner.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to delete this playlist." });
+      return res.status(403).json({ error: "Not authorized." });
     }
 
     await Playlist.deleteOne({ _id: playlistId });
 
     return res.status(200).json({ message: "Playlist deleted successfully." });
   } catch (error) {
-    console.error("Error deleting playlist:", error);
     return res.status(500).json({ error: "Failed to delete playlist." });
   }
 };

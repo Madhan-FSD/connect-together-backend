@@ -1,20 +1,18 @@
 import express from "express";
 import { protect } from "../middlewares/auth.middleware.js";
 import {
+  getSubscriptionsFeed,
   getPersonalizedFeed,
   getExploreFeed,
-  getTrendingPosts,
+  getTrending,
 } from "../controllers/feed.controller.js";
 
 const router = express.Router();
-
 router.use(protect);
 
-/**
- * FEED
- */
+router.get("/subscriptions", getSubscriptionsFeed);
 router.get("/personalized", getPersonalizedFeed);
 router.get("/explore", getExploreFeed);
-router.get("/trending", getTrendingPosts);
+router.get("/trending", getTrending);
 
 export default router;

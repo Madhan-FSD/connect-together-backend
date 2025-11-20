@@ -6,19 +6,23 @@ const childChannelSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Child",
       required: true,
-      unique: true,
+      index: true,
     },
+
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Parent",
+      ref: "User",
       required: true,
+      index: true,
     },
+
     name: {
       type: String,
       required: true,
       trim: true,
       maxLength: 50,
     },
+
     handle: {
       type: String,
       unique: true,
@@ -27,40 +31,22 @@ const childChannelSchema = new mongoose.Schema(
       required: true,
       match: /^[a-z0-9_]{3,20}$/,
     },
-    description: {
-      type: String,
-      maxLength: 250,
-      default: "",
-    },
-    avatarUrl: {
-      type: String,
-      default: "",
-    },
-    bannerUrl: {
-      type: String,
-      default: "",
-    },
-    subscribersCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    totalLikes: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    videoCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+
+    description: { type: String, maxLength: 250, default: "" },
+    avatarUrl: { type: String, default: "" },
+    bannerUrl: { type: String, default: "" },
+
+    subscribersCount: { type: Number, default: 0 },
+    totalLikes: { type: Number, default: 0 },
+    videoCount: { type: Number, default: 0 },
+
     uploadPermission: {
       type: String,
       enum: ["FULL", "BLOCKED", "LIMITED"],
       default: "BLOCKED",
       required: true,
     },
+
     uploadTimeWindow: {
       startTime: String,
       endTime: String,
@@ -70,25 +56,22 @@ const childChannelSchema = new mongoose.Schema(
         default: [],
       },
     },
-    commentModeration: {
-      type: Boolean,
-      default: true,
-    },
+
+    commentModeration: { type: Boolean, default: true },
+
     likeVisibility: {
       type: String,
       enum: ["PUBLIC_COUNT", "PRIVATE_COUNT", "DISABLED"],
       default: "PUBLIC_COUNT",
     },
+
     channelVisibility: {
       type: String,
-      enum: ["PUBLIC", "PRIVATE"],
+      enum: ["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"],
       default: "PUBLIC",
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-const ChildChannel = mongoose.model("ChildChannel", childChannelSchema);
-export default ChildChannel;
+export default mongoose.model("ChildChannel", childChannelSchema);

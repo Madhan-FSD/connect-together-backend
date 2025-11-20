@@ -14,14 +14,46 @@ export const chatWithAI = async (req, res) => {
     if (!message)
       return res.status(400).json({ error: "Message is required." });
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const chat = model.startChat({
-      history: [],
-      generationConfig: { maxOutputTokens: 1000, temperature: 0.7 },
+    const systemInstruction =
+      "You are a highly factual and concise AI assistant. For all current events, real-time data, and questions involving dates (like current political leaders or recent news), you MUST use the enabled Google Search tool to verify your answer before responding. Only rely on your internal knowledge for historical or general context.";
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      tools: [{ googleSearch: {} }],
+      systemInstruction,
     });
 
-    const result = await chat.sendMessage(message);
-    res.status(200).json({ reply: result.response.text() });
+    const chat = model.startChat({
+      history: [],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: 1000,
+      },
+    });
+
+    let result = await chat.sendMessage(message);
+    let response = result.response;
+
+    while (response.toolCalls && response.toolCalls.length > 0) {
+      const toolRequest = response.toolCalls[0];
+
+      if (toolRequest.googleSearch) {
+        const searchResponse = await genAI.tools.googleSearch({
+          query: toolRequest.googleSearch.query,
+        });
+
+        result = await chat.sendMessage({
+          toolResult: {
+            id: toolRequest.id,
+            result: searchResponse,
+          },
+        });
+
+        response = result.response;
+      }
+    }
+
+    res.status(200).json({ reply: response.text() });
   } catch (error) {
     console.error("Error in AI chat:", error);
     res.status(500).json({ error: "Failed to process chat message." });

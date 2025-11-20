@@ -64,6 +64,7 @@ const activityLogSchema = new mongoose.Schema(
         "CHILD_UPDATED_PROFILE",
         "PARENT_UPDATED_PROFILE",
         "CHILD_UPDATED_CORE_PROFILE",
+        "JOINED_CHANNEL",
       ],
       required: true,
     },

@@ -17,20 +17,18 @@ const safelyUnlink = async (filePath) => {
   try {
     await fs.access(filePath);
     await fs.unlink(filePath);
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.error(`Failed to delete local file ${filePath}:`, error.message);
-    }
-  }
+  } catch (error) {}
 };
 
-export const uploadOnCloudinary = async (localFilePath, folderPath) => {
+export const uploadOnCloudinary = async (
+  localFilePath,
+  folderPath,
+  privacy = "public"
+) => {
   if (!localFilePath) return null;
 
   const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-
   const CHUNK_UPLOAD_THRESHOLD_BYTES = 10 * 1024 * 1024;
-
   const isVideo = /\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i.test(
     path.extname(localFilePath)
   );
@@ -40,11 +38,6 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
     const fileSize = stats.size;
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
-      console.error(
-        `[Cloudinary] File size (${fileSize} bytes) exceeds the maximum allowed limit of ${
-          MAX_FILE_SIZE_BYTES / (1024 * 1024)
-        }MB on this plan. Upload aborted.`
-      );
       await safelyUnlink(localFilePath);
       return null;
     }
@@ -53,20 +46,20 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
     let options = {
       resource_type: "auto",
       folder: folderPath,
+      type: privacy,
     };
 
     if (fileSize > CHUNK_UPLOAD_THRESHOLD_BYTES || isVideo) {
       uploadMethod = cloudinary.uploader.upload_large;
-
       options.chunk_size = 20 * 1024 * 1024;
+    }
 
-      const reason = isVideo ? "is a video file" : "exceeds 10MB";
-
-      console.log(
-        `[Cloudinary] File ${reason}. Using chunked upload with ${
-          options.chunk_size / (1024 * 1024)
-        }MB chunks.`
-      );
+    if (isVideo) {
+      options.eager = [
+        { format: "m3u8", streaming_profile: "hd" },
+        { format: "mpd", streaming_profile: "hd" },
+      ];
+      options.resource_type = "video";
     }
 
     const response = await new Promise((resolve, reject) => {
@@ -74,22 +67,15 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
         if (error) {
           return reject(error);
         }
-
         resolve(result);
       });
     });
 
     const uploadedFileSrc = response.secure_url || response.url;
 
-    if (uploadedFileSrc) {
-      console.log("File uploaded on cloudinary. File src: " + uploadedFileSrc);
-    } else {
+    if (!uploadedFileSrc) {
       console.error(
-        "File uploaded successfully, but could not find 'secure_url' or 'url' in the response."
-      );
-      console.log(
-        "Full Cloudinary API Response Object (Expected JSON):",
-        response
+        "File uploaded successfully, but could not find URL in the response."
       );
     }
 
@@ -97,28 +83,37 @@ export const uploadOnCloudinary = async (localFilePath, folderPath) => {
 
     return response;
   } catch (error) {
-    console.error("Cloudinary upload failed:", error);
-
     await safelyUnlink(localFilePath);
-
     return null;
   }
 };
 
 export const deleteFromCloudinary = async (publicId) => {
   if (!publicId) return null;
-
   try {
     const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: "auto",
     });
-
-    console.log("Deleted from cloudinary. public id - ", publicId);
     return result;
   } catch (error) {
-    console.error("Cloudinary deletion failed:", error);
     return null;
   }
+};
+
+export const generateSignedStreamingUrl = (publicId) => {
+  const expiration = Math.floor(Date.now() / 1000) + 600;
+
+  const signedUrl = cloudinary.url(publicId, {
+    resource_type: "video",
+    secure: true,
+    type: "upload",
+    sign_url: true,
+    expires_at: expiration,
+    streaming_profile: "hd",
+    format: "m3u8",
+  });
+
+  return signedUrl;
 };
 
 export default cloudinary;

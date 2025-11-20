@@ -43,6 +43,7 @@ import {
   addAddress,
   updateAddress,
   deleteAddress,
+  getUserFullProfileById,
 } from "../controllers/user/profile.controller.js";
 
 import upload from "../middlewares/multer.middleware.js";
@@ -142,5 +143,7 @@ router
   .delete(protect, deleteUserProfileBanner);
 
 router.get("/full-profile", getFullProfileForUser);
+
+router.get("/:userId", getUserFullProfileById);
 
 export default router;

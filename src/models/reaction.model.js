@@ -19,7 +19,16 @@ const reactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["LIKE", "LOVE", "CELEBRATE", "INSIGHTFUL", "SAD", "ANGRY"],
+      enum: [
+        "LIKE",
+        "LOVE",
+        "CELEBRATE",
+        "INSIGHTFUL",
+        "SAD",
+        "ANGRY",
+        "SUPPORT",
+        "CURIOUS",
+      ],
       required: true,
     },
   },

@@ -4,7 +4,6 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 export const protect = (req, res, next) => {
   let token;
-
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
@@ -83,4 +82,21 @@ export const protectChild = (req, res, next) => {
   }
 
   next();
+};
+
+export const optionalAuth = (req, res, next) => {
+  const header = req.headers.authorization || req.headers.Authorization;
+  if (!header) return next();
+  const parts = header.split(" ");
+  if (parts.length !== 2) return next();
+  const token = parts[1];
+  if (!token) return next();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded) {
+      req.userId = decoded.userId;
+      req.userRole = decoded.role;
+    }
+  } catch (e) {}
+  return next();
 };

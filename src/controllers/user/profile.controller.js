@@ -7,6 +7,8 @@ import {
   uploadOnCloudinary,
 } from "../../utils/cloudinary.js";
 import { calculateAge } from "../../utils/child.utils.js";
+import mongoose from "mongoose";
+import { User } from "../../models/user.model.js";
 
 const extractPublicIdFromUrl = (url) => {
   if (!url) return null;
@@ -760,4 +762,24 @@ export const getUserProfileBanner = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "No profile banner found." });
 
   res.status(200).json({ profileBanner: user.profileBanner });
+});
+
+export const getUserFullProfileById = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: "Invalid user ID format." });
+  }
+
+  const profileFields =
+    "firstName lastName gender dob mobile addresses avatar profileBanner profileHeadline about " +
+    "skills certifications experiences educations interests achievements projects connectionCount";
+
+  const userProfile = await User.findById(userId).select(profileFields).lean();
+
+  if (!userProfile) {
+    return res.status(404).json({ message: "User profile not found." });
+  }
+
+  res.status(200).json({ user: userProfile });
 });

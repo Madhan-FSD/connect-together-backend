@@ -1,12 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { calculateAge } from "../utils/child.utils.js";
-
-const FirebaseTokenSchema = new mongoose.Schema({
-  token: String,
-  device: String,
-  createdAt: { type: Date, default: Date.now },
-});
+import { FirebaseTokenSchema } from "./firebase/firebase.model.js";
 
 const ActivitySchema = new mongoose.Schema({
   subject: String,
@@ -160,6 +155,7 @@ const ChildSchema = new mongoose.Schema(
       canUpdateProfileBanner: { type: Boolean, default: false },
       canDeleteProfileBanner: { type: Boolean, default: false },
     },
+    deletedAt: { type: Date, default: null },
   },
   {
     toJSON: { virtuals: true },
@@ -241,6 +237,7 @@ const UserSchema = new mongoose.Schema(
     children: [ChildSchema],
     connectionCount: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
+    deletedAt: { type: Date, default: null },
   },
   {
     toJSON: { virtuals: true },
@@ -303,6 +300,11 @@ UserSchema.pre("save", async function (next) {
 
   next();
 });
+
+UserSchema.index({ email: 1 });
+UserSchema.index({ firebaseUID: 1 });
+UserSchema.index({ deletedAt: 1 });
+UserSchema.index({ role: 1 });
 
 const User = mongoose.model("User", UserSchema);
 const Child = mongoose.model("Child", ChildSchema);

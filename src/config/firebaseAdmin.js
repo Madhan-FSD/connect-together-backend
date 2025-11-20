@@ -5,18 +5,18 @@ dotenv.config();
 
 const serviceAccount = {
   type: "service_account",
-  project_id: "connect-together-firebase",
-  private_key_id: "9f3f00c094a9d80882f05953dd2e4e745dc51dd8",
+  project_id: "pp-chat-v2-real",
+  private_key_id: "8dd79f3f5cf9e526ff5c755bd10fc9943445a48c",
   private_key:
-    "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCqTYtUEdjhpPue\nbjmoLvRDZ+8R3J9wxem3O/r/ZgBxVq2VPuTWuDiXHVrZupnHOo+beRD5fjmaH6gn\nM618TYmU5iu6QXiej1b6cGxIa3mSEUasQi4r/+slnhN3YJ1kL784ZaKUeduvBwF5\nnRDBKNAgP+Z+8bciyPVYRfcV7qyaJ6gT6xJzkT2I3qiI0Mij/KRA7RzQOnNwWRAm\nWk+88Q+albntgnOyfMzJf9NnOFV35Sp4Hh2yWI4EjXRBeh2rU6uLFSEQNJ9EBfZD\nLkME+oas499Vp6mwvk7NQaE2HsIVmi8zEy66mHsFIJ5wOfhI2MffEUOLvYZUHxpC\ncZVNcG3lAgMBAAECggEABqo36IeK8jMXk9ji0cWwp+NX6bOK29+AU5GkiOfwNCn9\nFh5a11poqzqqCmOxTqjojjWb5/URgl94dbxMhFUGgY4hKk4TTzqd3/mUC0uFe6Vz\nG3JlmzGN/YVlDqLN1hTA9OSUCx/abKGnZEqKKX0UPsbcGZ4Sbuk9d4HEIewa04I8\ncDYiU4ZRSVJrTKGEncAFFCD5CS0Hhb5dkJe6u0FvrhIURiRcxC/wj0qXuh9XHcTv\n82t4lrgRhvKl5MYR4Rd8kwrCyHwPqJz8g1bL720ND5BjZmiuhEpJDPERb4BrEHHY\nGIgoVnCBlmLYItR6sv/o7kmqXNIev/OecF6c0guVywKBgQDcZeNuZc058SdgoCq1\nJfHc4mLF5+lKGBNX9JB53UTs2syWGd2SXrznA7KhQTTZNOc5FVlOBPlMKtezxFdq\nz69EBlJRpQ9fxx2MITcbvCY7PcYJc7ir5Yr5FVpiuhAJIsXUPcgQ5gPlQG8IzvM9\nrXjdN3oP0JlNGmM9wyM4lykCwwKBgQDF0BMy1cHNw3794Ht/nIVdTf/zcnMgpo1r\ngpb7fM8XxOqxMA5S11jiTlyfjcLRI/Y8Rn8kVOxiATfFtBXfzpSND7+VdBPZkBts\nHPGnL/pB9QTR08CNm75Fk35Wdzbwn7IVJwHvNW4J1+GGbLKFwkHMDy93Ws719kY6\nSbxE26JyNwKBgEXvnuedLi5As7oZmPO6grEQtT8PhBua4Ch81ouVBxYRp/HJa2HS\n5iZ4Keq5gkeaXfTjLV9wfJsKzT+iAgtGs9rmFqEJu4Ms79dTguUuIwORapH9QpBp\nWlwHxpKlcAk2G4hpwl56XqoUdCdbZBwiO8QWooj6LGsnAG7MyRRgAwd5AoGAa5Ul\ny+D7nWf0mijLofTDh6JTUNjvClPq2AzXBoGzs+6x4ZoMQDvEqJgLwe78hHg1hESn\nA2B4izi0V38A4o7ctfdZr/PIk+vPLjZzqwTp65NRgrjSoXGRww9bh7UgmS+RT/W+\nFJYPeaUCj/RwB1VGKbAclaI6qwS83xiZHy4ApHMCgYEAmSu5cOJjrMCI8ssCzLdI\nkMptj3sGe4eEnILOPmqa3BEbh5iw6wOtqekIz2oKL05VBbCIe7lVU1/9vHs1jAO3\n16atrr3GeMYiMfMY7GvTTsMPSvXx5Gcc1gBUBDuTDaIX7FZXHKopTwIc30DzR3ot\nqYwZg8lJiLZC++cj7Zaeinc=\n-----END PRIVATE KEY-----",
+    "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDLM7S0CySSCmzc\nNnAzqEchupJpPcv76K/p89LjjHX/YCsyC/Nc58jwtECvq9T6xDmO4R9McoZgsDhd\nbiJ2dfZq07DCtkf/CBd3vyQJOAeQoCWvwA71qnABsD9jVzhRErCVL0TZ7Qfmmg9H\nu52v25AzwzaNupTORS0Y79oxfyOYkSdh2k5WIjQrsyQUS1N7L8Z+UhEI7czMrGHO\nrn+BondxLW1HiFfNF0hi8tP7zZ1VwMlyVA00wCOdCieRZssNm4IIMSn8yc2Fonaw\nnxjz4HTVmwhC5L1wRkvcwuaVNy4FYsCUoRm+78SKxyBRajfvz8IRgA9VZgZ+Kjhm\nOWy9CCbrAgMBAAECggEAMeHHgksZ9x/ICWbztDqi+4ypVFxvLq+4P14zbtiUPtSE\nxgxY+X2MvkoBdx5fcg+pcYGiBUo34pRfwc+/dgUPMLo2shW9JsX9vM+XMQwoD0DA\n/5vOEFB+nmt9pA1NLdnAr16jMDwXrGw1RA6ybvEfPRW21qPu05P3th9rGKt1OYY4\nCQXvFlhqLjAtW2ro7Ha6UHwApwaYXavrDYKXEsY56poopNPU9VrnG+6OfAI6+8w5\n8qiDKfn9svrSaIIpEdVZG51dbLkBrRBJwA1dTiS0RScYXlyUoQg7O9D28MacsWfe\ntY5VlnmsnT1PnCUqAAWt/icV8tJX8EP4ox2+/pAtQQKBgQD6ByWLeziuSlbT2ZPn\nvdIvD1d1x9acwPQHb1Up2CAG8l1zYC88WY+LR5bEhuSXba0SIAo00gAmFHcDVmHO\nkOMrekl+AmcfuPITe/EtVDhslhdSfPkw+j+R6PxLJUmH+Kq8jr9LCYCbU+qYDlRL\nX87oOyg7x5I8tMQ9TSvTsK9zDwKBgQDQDjswIzn31f5PR/OQihG9gjpdl8szCHgu\nr5XbPdtY7oRO9MVIn7SawSQjJbfmv9ziv5mR0m/shgU+Zrzo0cgTlEtUvpRZ8I5q\n1p5ujzPldzfg997FZu10AA6dckI3TGxl1IlpTS/4mmEZ/0lBY5StedeyjZFrzEOY\ndHrqMmweZQKBgFcBoakWKjVMnUZ/kp60Sa4ispbEAgTuiH0F2ycClLKWKLr7n7Rq\nni8jrG2bW3Tur6l9CNA0u+SEfp3ks4iElukMVwLIp0Y8v9DT8quJgVEYMel8n+LR\nUsndv94OjbYJbLDNI/hiyCRFYX+kjOTl5ESgQXH8EwGZDike779s3sE1AoGACObS\n+XhIXqY1P0cg0KpXn/gWbzKzaveNzNGOY9b9r4xk9MvcNQNAQu7IkQhoGeNTnA/+\njhKm30PMraLPqlZvbQcHQhT1W/PC5CdSmABghAzZwzJXwbJprnDiLzJYSu1mJeU2\nC99Vkhlo1ifqBnYwQkvYQrdz5VzT943kRGjr31ECgYEAyOknTnRvr5jmJFxutsk8\n86FPBnkRoSNAHaa5tco/GG9c1o4Xo+2gVN67s3/VZSkkqvYpMU8X8D1sUII59uPD\nQ9NPTp6I48yAHIktmrgoldljl+bC12JcB6KCMNcOu+q/yHmieSXBScbUB7kI7EzJ\nY1hNJq6YaZGUCYBhRpBBjvU=\n-----END PRIVATE KEY-----\n",
   client_email:
-    "firebase-adminsdk-fbsvc@connect-together-firebase.iam.gserviceaccount.com",
-  client_id: "115027838066403580842",
+    "firebase-adminsdk-fbsvc@pp-chat-v2-real.iam.gserviceaccount.com",
+  client_id: "111105367800015796437",
   auth_uri: "https://accounts.google.com/o/oauth2/auth",
   token_uri: "https://oauth2.googleapis.com/token",
   auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
   client_x509_cert_url:
-    "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40connect-together-firebase.iam.gserviceaccount.com",
+    "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40pp-chat-v2-real.iam.gserviceaccount.com",
   universe_domain: "googleapis.com",
 };
 
@@ -28,13 +28,14 @@ export const initializeFirebaseAdmin = () => {
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
+      databaseURL: "https://pp-chat-v2-real-default-rtdb.firebaseio.com",
     });
 
     isInitialized = true;
-    console.log("✅ Firebase Admin initialized");
+    console.log("Firebase Admin initialized");
     return admin;
   } catch (error) {
-    console.error("❌ Firebase initialization error:", error);
+    console.error("Firebase initialization error:", error);
     throw error;
   }
 };

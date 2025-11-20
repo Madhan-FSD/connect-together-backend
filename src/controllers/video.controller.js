@@ -1,271 +1,310 @@
 import Video from "../models/video.model.js";
-import UserChannel from "../models/userchannel.model.js";
+import { Playlist } from "../models/playlist.model.js";
 import {
   uploadOnCloudinary,
   deleteFromCloudinary,
+  generateSignedStreamingUrl,
 } from "../utils/cloudinary.js";
-import { logActivity } from "../utils/activityLog.js";
-import { checkUploadGuardrails } from "../utils/permissionGuardrails.js";
-import fs from "fs";
+import fs from "fs/promises";
+import mongoose from "mongoose";
+import { Comment } from "../models/post.model.js";
+import { extractThumbnail } from "../utils/video.utils.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const cleanupFile = async (path) => {
+  if (!path) return;
+  await fs.unlink(path).catch(() => {});
+};
+
+const checkPaidSubscription = async (viewerId, channelId) => {
+  return true;
+};
 
 export const uploadVideo = async (req, res) => {
-  const { childId, title, duration } = req.body;
-  const filePath = req.file?.path;
+  const userId = req.userId;
+  const {
+    contentType = "VIDEO_CHANNEL",
+    channelId,
+    channelType,
+    title,
+    description,
+    visibility = "PUBLIC",
+    playlistId,
+    duration: durationBody = 1,
+  } = req.body;
 
-  const requesterId = req.userId;
-  const requesterRole = req.role;
+  const videoFile = req.files?.video?.[0];
+  const thumbnailFile = req.files?.thumbnail?.[0];
 
-  let effectiveOwnerId = requesterId;
-  let effectiveChannelId = null;
-  let effectiveParentId = null;
-  let targetFolder = null;
-  let isSupervisedPost = false;
-  let publicId = null;
+  if (!videoFile) return res.status(400).json({ error: "Video file required" });
 
-  if (requesterRole === "CHILD") {
-    isSupervisedPost = true;
-    if (!req.parentId) {
-      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res
-        .status(403)
-        .json({ error: "Child user is missing parent context." });
-    }
-    effectiveParentId = req.parentId;
-    targetFolder = `users/${req.parentId}/${requesterId}/videos`;
-  } else if (requesterRole === "PARENT") {
-    if (childId) {
-      isSupervisedPost = true;
-      effectiveOwnerId = childId;
-      effectiveParentId = requesterId;
-      targetFolder = `users/${requesterId}/${childId}/videos`;
-    } else {
-      targetFolder = `users/${requesterId}/videos`;
-    }
-  } else if (requesterRole === "NORMAL_USER") {
-    targetFolder = `users/${requesterId}/videos`;
-  } else {
-    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return res.status(401).json({ error: "Unauthorized upload context." });
+  if (!title) {
+    await cleanupFile(videoFile.path);
+    await cleanupFile(thumbnailFile?.path);
+    return res.status(400).json({ error: "Title required" });
   }
-
-  if (!title || !duration || !req.file) {
-    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return res
-      .status(400)
-      .json({ error: "Missing required fields (title, duration) or file." });
-  }
-
-  const contentType = isSupervisedPost ? "UGC_POST" : "UGC_CHANNEL";
 
   try {
-    let channelDoc = null;
+    const folder =
+      channelId && channelType
+        ? `channels/${channelId}/videos`
+        : `users/${userId}/videos`;
 
-    if (isSupervisedPost) {
-      const {
-        isAllowed,
-        message,
-        channel: retrievedChannel,
-      } = await checkUploadGuardrails(effectiveParentId, effectiveOwnerId);
+    const privacy = visibility === "PAID_ONLY" ? "private" : "public";
 
-      if (!isAllowed) {
-        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        await logActivity(
-          "UPLOAD_FAILED",
-          effectiveParentId,
-          effectiveOwnerId,
-          null,
-          null,
-          message
-        );
-        return res.status(403).json({ error: message });
-      }
-      channelDoc = retrievedChannel;
-    } else {
-      channelDoc = await UserChannel.findOne({ owner: requesterId });
-      if (!channelDoc) {
-        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        return res.status(404).json({
-          error: "User channel not found. Please create a channel first.",
-        });
-      }
-    }
-    effectiveChannelId = channelDoc._id;
+    const videoUpload = await uploadOnCloudinary(
+      videoFile.path,
+      folder,
+      privacy
+    );
+    if (!videoUpload) throw new Error("Video upload failed");
 
-    const result = await uploadOnCloudinary(filePath, targetFolder);
+    const actualDuration = videoUpload.duration
+      ? Math.ceil(videoUpload.duration)
+      : Number(durationBody) || 1;
 
-    if (!result) {
-      throw new Error("Cloudinary upload failed.");
+    let thumbUpload = null;
+    let finalThumbnailPath = thumbnailFile?.path;
+
+    if (!finalThumbnailPath) {
+      finalThumbnailPath = await extractThumbnail(videoFile.path);
     }
 
-    publicId = result.public_id;
+    if (finalThumbnailPath) {
+      thumbUpload = await uploadOnCloudinary(
+        finalThumbnailPath,
+        `${folder}/thumbs`
+      );
+      await cleanupFile(finalThumbnailPath);
+    }
 
-    const newVideo = new Video({
-      ownerId: effectiveOwnerId,
-      channelId: effectiveChannelId,
-      parentId: effectiveParentId,
-      childId: isSupervisedPost ? effectiveOwnerId : null,
-      contentType: contentType,
-
-      title: title,
-      duration: parseInt(duration),
-      publicId: publicId,
-      secureUrl: result.secure_url,
+    const newVideo = await Video.create({
+      contentType,
+      ownerId: userId,
+      channelId,
+      channelType,
+      title,
+      description,
+      duration: actualDuration,
+      publicId: videoUpload.public_id,
+      secureUrl: videoUpload.secure_url,
+      thumbnailUrl: thumbUpload?.secure_url,
+      visibility,
+      videoStatus: "LIVE",
+      playlistIds: playlistId ? [playlistId] : [],
     });
 
-    const savedVideo = await newVideo.save();
-
-    if (isSupervisedPost) {
-      await logActivity(
-        "POSTED",
-        effectiveParentId,
-        effectiveOwnerId,
-        null,
-        savedVideo._id,
-        "Video uploaded."
-      );
+    if (playlistId) {
+      try {
+        const pl = await Playlist.findById(playlistId);
+        if (pl) {
+          pl.videos.push(newVideo._id);
+          await pl.save();
+        }
+      } catch (e) {}
     }
 
-    res
-      .status(201)
-      .json({ message: "Video uploaded successfully.", video: savedVideo });
-  } catch (error) {
-    if (publicId) {
-      await deleteFromCloudinary(publicId).catch((delErr) =>
-        console.error("Rollback failed:", delErr)
-      );
-    }
+    await cleanupFile(videoFile.path);
 
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    console.error(`[Controller] CRITICAL ERROR:`, error);
-    res.status(500).json({ error: "Upload failed.", details: error.message });
+    return res.status(201).json({ video: newVideo });
+  } catch (err) {
+    await cleanupFile(videoFile?.path);
+    await cleanupFile(thumbnailFile?.path);
+    return res
+      .status(500)
+      .json({ error: "Upload failed", details: err.message });
   }
 };
+
+export const getSecureVideoUrl = asyncHandler(async (req, res) => {
+  const viewerId = req.userId;
+  const { videoId } = req.params;
+
+  if (!viewerId) {
+    return res.status(401).json({ message: "Authentication required." });
+  }
+
+  const video = await Video.findById(videoId).select(
+    "publicId visibility channelId ownerId"
+  );
+
+  if (!video) {
+    return res.status(404).json({ message: "Video not found." });
+  }
+
+  let signedUrl;
+
+  if (video.visibility === "PAID_ONLY") {
+    const isOwner = video.ownerId.toString() === viewerId.toString();
+    let isAuthorized = isOwner;
+
+    if (!isAuthorized) {
+      if (!video.channelId) {
+        return res
+          .status(500)
+          .json({ message: "Video channel information is missing." });
+      }
+      isAuthorized = await checkPaidSubscription(viewerId, video.channelId);
+    }
+
+    if (!isAuthorized) {
+      return res
+        .status(403)
+        .json({ message: "Subscription required to access this video." });
+    }
+
+    signedUrl = generateSignedStreamingUrl(video.publicId);
+  } else {
+    signedUrl = cloudinary.url(video.publicId, {
+      resource_type: "video",
+      secure: true,
+      streaming_profile: "hd",
+      format: "m3u8",
+    });
+  }
+
+  return res.status(200).json({ secureUrl: signedUrl });
+});
 
 export const getVideoDetails = async (req, res) => {
   const { videoId } = req.params;
-
   try {
-    const video = await Video.findById(videoId)
-      .populate("ownerId", "username")
-      .select("-publicId");
+    if (!mongoose.Types.ObjectId.isValid(videoId))
+      return res.status(400).json({ error: "Invalid video id" });
 
-    if (!video) {
-      return res.status(404).json({ error: "Video not found." });
-    }
+    const video = await Video.findById(videoId).populate(
+      "ownerId",
+      "firstName lastName avatar"
+    );
+    if (!video) return res.status(404).json({ error: "Video not found." });
 
-    video.viewsCount = video.viewsCount + 1;
-    video
-      .save()
-      .catch((err) => console.error("Failed to increment views:", err));
-
-    return res.status(200).json({ video });
-  } catch (error) {
-    console.error("Error in getVideoDetails:", error);
-    return res.status(500).json({ error: "Failed to retrieve video details." });
-  }
-};
-
-export const getChannelVideos = async (req, res) => {
-  const { channelId } = req.params;
-  const {
-    limit = 10,
-    page = 1,
-    sortBy = "createdAt",
-    sortOrder = -1,
-  } = req.query;
-
-  try {
-    const videos = await Video.find({
-      channelId: channelId,
-      videoStatus: "LIVE",
+    const comments = await Comment.find({
+      targetId: videoId,
+      targetType: "Video",
     })
-      .sort({ [sortBy]: sortOrder })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .select("title secureUrl duration viewsCount");
+      .sort({ createdAt: -1 })
+      .populate("ownerId", "firstName lastName avatar");
 
-    return res.status(200).json({ videos });
-  } catch (error) {
-    console.error("Error in getChannelVideos:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to retrieve channel videos." });
-  }
-};
-
-export const updateVideoDetails = async (req, res) => {
-  const userId = req.userId;
-  const { videoId } = req.params;
-  const { title, description, videoStatus } = req.body;
-
-  if (!title && description === undefined && videoStatus === undefined) {
-    return res
-      .status(400)
-      .json({ error: "Provide at least one field to update." });
-  }
-
-  try {
-    const video = await Video.findById(videoId);
-
-    if (!video) {
-      return res.status(404).json({ error: "Video not found." });
-    }
-
-    if (video.ownerId.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to update this video." });
-    }
-
-    if (title) video.title = title;
-    if (description !== undefined) video.description = description;
-    if (videoStatus) video.videoStatus = videoStatus;
-
-    await video.save();
-
-    return res
-      .status(200)
-      .json({ message: "Video updated successfully.", video });
-  } catch (error) {
-    console.error("Error in updateVideoDetails:", error);
-    return res.status(500).json({ error: "Failed to update video details." });
+    return res.status(200).json({ video, comments });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch video details." });
   }
 };
 
 export const deleteVideo = async (req, res) => {
-  const userId = req.userId;
   const { videoId } = req.params;
+  const userId = req.userId;
 
   try {
     const video = await Video.findById(videoId);
+    if (!video) return res.status(404).json({ error: "Video not found." });
 
-    if (!video) {
-      return res.status(404).json({ error: "Video not found." });
-    }
-
-    if (video.ownerId.toString() !== userId.toString()) {
+    const isOwner = video.ownerId.toString() === userId.toString();
+    if (!isOwner)
       return res
         .status(403)
         .json({ error: "Not authorized to delete this video." });
-    }
 
-    const publicId = video.publicId;
+    if (video.publicId)
+      await deleteFromCloudinary(video.publicId).catch(() => {});
+
+    await Comment.deleteMany({
+      targetId: video._id,
+      targetType: "Video",
+    }).catch(() => {});
 
     await Video.deleteOne({ _id: videoId });
 
-    await deleteFromCloudinary(publicId).catch((err) => {
-      console.error(
-        `Failed to delete Cloudinary asset ${publicId} during cleanup:`,
-        err
-      );
+    return res.status(200).json({ message: "Video deleted successfully." });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ error: "Failed to delete video.", details: err.message });
+  }
+};
+
+export const addVideoComment = async (req, res) => {
+  const { videoId } = req.params;
+  const userId = req.userId;
+  const { content } = req.body;
+
+  if (!content?.trim())
+    return res.status(400).json({ error: "Comment content cannot be empty." });
+
+  try {
+    const video = await Video.findById(videoId).select("commentsCount");
+    if (!video) return res.status(404).json({ error: "Video not found." });
+
+    const newComment = await Comment.create({
+      targetId: videoId,
+      targetType: "Video",
+      ownerId: userId,
+      content,
     });
 
-    return res.status(200).json({ message: "Video deleted successfully." });
-  } catch (error) {
-    console.error("Error in deleteVideo:", error);
-    return res.status(500).json({ error: "Failed to delete video." });
+    video.commentsCount += 1;
+    await video.save();
+
+    const populated = await Comment.findById(newComment._id).populate(
+      "ownerId",
+      "firstName lastName avatar"
+    );
+
+    return res
+      .status(201)
+      .json({ message: "Comment added successfully.", comment: populated });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to add comment." });
+  }
+};
+
+export const getVideoComments = async (req, res) => {
+  const { videoId } = req.params;
+
+  try {
+    const comments = await Comment.find({
+      targetId: videoId,
+      targetType: "Video",
+    })
+      .sort({ createdAt: -1 })
+      .populate("ownerId", "firstName lastName avatar");
+
+    return res.status(200).json({ comments });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch comments." });
+  }
+};
+
+export const deleteVideoComment = async (req, res) => {
+  const { commentId } = req.params;
+  const userId = req.userId;
+
+  try {
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found." });
+
+    const video = await Video.findById(comment.targetId).select(
+      "ownerId commentsCount"
+    );
+
+    const isOwner = comment.ownerId.toString() === userId.toString();
+    const isVideoOwner =
+      video && video.ownerId.toString() === userId.toString();
+
+    if (!isOwner && !isVideoOwner)
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this comment." });
+
+    await Comment.deleteOne({ _id: commentId });
+
+    if (video) {
+      video.commentsCount = Math.max(0, video.commentsCount - 1);
+      await video.save();
+    }
+
+    return res.status(200).json({ message: "Comment deleted successfully." });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to delete comment." });
   }
 };

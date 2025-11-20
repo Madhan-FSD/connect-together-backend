@@ -120,8 +120,21 @@ export const verifyOtp = async (req, res) => {
 export const loginEmailCheck = async (req, res) => {
   try {
     const { email } = req.body;
+
     const user = await User.findOne({ email });
-    if (!user) return res.json({ hasAccount: false });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "No account found with that email address.",
+        hasAccount: false,
+      });
+    }
+
+    if (!user.isVerified) {
+      return res.status(400).json({
+        error: "Account not verified. Please verify your email first.",
+      });
+    }
 
     const children = user.children.map((c) => ({
       id: c._id,
@@ -130,14 +143,13 @@ export const loginEmailCheck = async (req, res) => {
       age: c.age,
     }));
 
-    if (!user.isVerified)
-      return res.status(400).json({
-        error: "Account not verified. Please verify your email first.",
-      });
-
-    res.json({ hasAccount: true, hasChildren: children.length > 0, children });
+    res.json({
+      hasAccount: true,
+      hasChildren: children.length > 0,
+      children,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Error during login email check:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -214,7 +226,6 @@ export const login = async (req, res) => {
       return res.status(400).json({
         error: "Account not verified. Please verify your email first.",
       });
-
     if (!user.otp)
       return res.status(400).json({
         error: "Login OTP missing. Please request a new one with 'Send OTP'.",
@@ -227,7 +238,6 @@ export const login = async (req, res) => {
       return res
         .status(400)
         .json({ error: "OTP expired. Please request a new one." });
-
     const role = getRole(user);
 
     const token = jwt.sign({ userId: user._id, role }, process.env.JWT_SECRET, {
@@ -237,7 +247,6 @@ export const login = async (req, res) => {
     user.otp = null;
     user.otpExpiry = null;
     await user.save();
-
     const childrenData = user.children.map((child) => ({
       id: child._id,
       firstName: child.firstName,
@@ -246,14 +255,16 @@ export const login = async (req, res) => {
       permissions: child.permissions,
     }));
 
-    const fullName = getFullName(user);
-
     res.json({
-      token,
+      token: token,
       userId: user._id,
-      name: fullName,
-      role,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatar: user.avatar,
+      role: role,
       children: childrenData,
+      channel: user.channel,
     });
   } catch (err) {
     console.error(err);

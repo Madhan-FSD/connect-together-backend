@@ -29,6 +29,11 @@ const contentSchema = new mongoose.Schema(
       default: "UserChannel",
     },
     isCompleted: { type: Boolean, default: false },
+    visibility: {
+      type: String,
+      enum: ["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"],
+      default: "PUBLIC",
+    },
   },
   { timestamps: true }
 );
@@ -40,12 +45,7 @@ const curatedChannelSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    channelName: {
-      type: String,
-      required: true,
-      trim: true,
-      maxLength: 100,
-    },
+    channelName: { type: String, required: true, trim: true, maxLength: 100 },
     handle: {
       type: String,
       unique: true,
@@ -78,7 +78,7 @@ const curatedChannelSchema = new mongoose.Schema(
     language: { type: String, default: "en" },
     visibility: {
       type: String,
-      enum: ["PUBLIC", "PRIVATE"],
+      enum: ["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"],
       default: "PUBLIC",
     },
     content: [contentSchema],
@@ -99,5 +99,4 @@ curatedChannelSchema.index({ tags: 1 });
 curatedChannelSchema.index({ handle: 1 });
 curatedChannelSchema.index({ featured: 1 });
 
-const CuratedChannel = mongoose.model("CuratedChannel", curatedChannelSchema);
-export default CuratedChannel;
+export default mongoose.model("CuratedChannel", curatedChannelSchema);

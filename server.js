@@ -19,12 +19,17 @@ import feedsRoutes from "./src/routes/feed.routes.js";
 import followingRoutes from "./src/routes/following.routes.js";
 import gameReportsRoutes from "./src/routes/game.reports.routes.js";
 import reactionRoutes from "./src/routes/reaction.routes.js";
+import chatRoutes from "./src/routes/chat.routes.js";
+import playlistsRoutes from "./src/routes/playlist.routes.js";
+import videoRoutes from "./src/routes/video.routes.js";
+import eventRoutes from "./src/routes/events.route.js";
+import curatedRoutes from "./src/routes/curated.routes.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 mongoose
   .connect(process.env.MONGO_URL, {})
   .then(() => {
@@ -47,7 +52,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/child", childRoutes);
-app.use("/api/channels", channelRoutes);
+app.use("/api/channel", channelRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/ai", aiRoutes);
@@ -60,3 +65,8 @@ app.use("/api/followers", followersRoutes);
 app.use("/api/following", followingRoutes);
 app.use("/api/reports", gameReportsRoutes);
 app.use("/api/reactions", reactionRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/playlists", playlistsRoutes);
+app.use("/api/videos", videoRoutes);
+app.use("/api/event", eventRoutes);
+app.use("/api/curated", curatedRoutes);

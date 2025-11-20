@@ -182,9 +182,9 @@ export const likePost = async (req, res) => {
 
 export const createChildChannel = async (req, res) => {
   const { childId } = req.params;
-  const { channelName, description } = req.body;
+  const { name, description } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(childId) || !channelName) {
+  if (!mongoose.Types.ObjectId.isValid(childId) || !name) {
     return res
       .status(400)
       .json({ message: "Invalid Child ID or missing channel name." });

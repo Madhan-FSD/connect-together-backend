@@ -26,9 +26,9 @@ export const validateInput = (data, requiredFields = []) => {
         );
       }
 
-      if (value.length > 500) {
+      if (value.length > 5000) {
         throw new ApiError(
-          `Input too long for field: ${key}. Max length is 500 characters.`,
+          `Input too long for field: ${key}. Max length is 5000 characters.`,
           400
         );
       }

@@ -15,10 +15,9 @@ const playlistSchema = new mongoose.Schema(
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Links the playlist to the User (channel owner)
+      ref: "User",
       required: true,
     },
-    // The videos array stores references to the Video model
     videos: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -27,15 +26,32 @@ const playlistSchema = new mongoose.Schema(
     ],
     isPublic: {
       type: Boolean,
-      default: true, // Determines if the playlist is visible to others
+      default: true,
     },
-    // Reference to the channel, though owner is often sufficient
     channelId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "UserChannel",
     },
+    playlistVisibility: {
+      type: String,
+      enum: ["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"],
+      default: "PUBLIC",
+    },
+    price: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+playlistSchema.index({ owner: 1, deletedAt: 1 });
+playlistSchema.index({ channelId: 1, playlistVisibility: 1, deletedAt: 1 });
+playlistSchema.index({ deletedAt: 1 });
 
 export const Playlist = mongoose.model("Playlist", playlistSchema);

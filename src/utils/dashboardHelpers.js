@@ -29,6 +29,21 @@ export async function getUserProfileSummary(userId) {
 
   const pipeline = [
     { $match: { _id: objectId } },
+
+    {
+      $lookup: {
+        from: "userchannels",
+        localField: "_id",
+        foreignField: "owner",
+        as: "channelDetails",
+      },
+    },
+    {
+      $unwind: {
+        path: "$channelDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
     {
       $project: {
         _id: 1,
@@ -46,6 +61,15 @@ export async function getUserProfileSummary(userId) {
         interestsCount: { $size: "$interests" },
         achievementsCount: { $size: "$achievements" },
         projectsCount: { $size: "$projects" },
+        avatar: 1,
+        channel: {
+          _id: "$channelDetails._id",
+          handle: "$channelDetails.handle",
+          name: "$channelDetails.name",
+          avatarUrl: "$channelDetails.avatarUrl",
+          bannerUrl: "$channelDetails.bannerUrl",
+          subscribersCount: "$channelDetails.subscribersCount",
+        },
       },
     },
   ];
@@ -117,14 +141,9 @@ async function getSocialActivitySummary(userId, role) {
 }
 
 export async function getNormalUserDashboardData(userId) {
-  const [userSummary, socialActivity] = await Promise.all([
-    getUserProfileSummary(userId),
-    getSocialActivitySummary(userId, "NORMAL_USER"),
-  ]);
+  const [userSummary] = await Promise.all([getUserProfileSummary(userId)]);
 
-  return userSummary
-    ? { role: "NORMAL_USER", ...userSummary, socialActivity }
-    : null;
+  return userSummary ? { role: "NORMAL_USER", ...userSummary } : null;
 }
 
 export async function getChildDashboardData(childId) {

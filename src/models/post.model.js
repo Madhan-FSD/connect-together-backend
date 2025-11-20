@@ -2,27 +2,37 @@ import mongoose from "mongoose";
 
 const CommentSchema = new mongoose.Schema(
   {
-    post: {
+    targetId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Post",
       required: true,
+      refPath: "targetType",
     },
+
+    targetType: {
+      type: String,
+      required: true,
+      enum: ["Post", "Video"],
+    },
+
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     content: {
       type: String,
       required: true,
       trim: true,
       maxlength: 500,
     },
+
     reactionCounts: {
       type: Map,
       of: Number,
       default: {},
     },
+
     totalReactions: {
       type: Number,
       default: 0,
@@ -31,8 +41,12 @@ const CommentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-CommentSchema.index({ post: 1 });
+CommentSchema.index({ targetId: 1 });
 CommentSchema.index({ ownerId: 1 });
+
+const POST_CONTENT_TYPES = ["POST_PROFILE", "POST_CHANNEL"];
+
+const VISIBILITY_TYPES = ["PUBLIC", "PRIVATE", "SUBSCRIBERS_ONLY", "PAID_ONLY"];
 
 const PostSchema = new mongoose.Schema(
   {
@@ -41,25 +55,35 @@ const PostSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: function () {
-        return this.isSupervised;
-      },
     },
+
     isSupervised: { type: Boolean, default: false },
 
-    channelId: { type: mongoose.Schema.Types.ObjectId, refPath: "channelType" },
+    channelId: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "channelType",
+    },
     channelType: {
       type: String,
       enum: ["UserChannel", "ChildChannel"],
     },
-    postTarget: {
+
+    contentType: {
       type: String,
-      enum: ["CHANNEL", "PROFILE"],
+      enum: POST_CONTENT_TYPES,
       required: true,
     },
+
+    postTarget: {
+      type: String,
+      enum: ["PROFILE", "CHANNEL"],
+      required: true,
+    },
+
     profileType: {
       type: String,
       enum: ["UserProfile", "ChildProfile"],
@@ -69,7 +93,8 @@ const PostSchema = new mongoose.Schema(
     content: { type: String },
     mediaUrl: { type: String },
     mediaPublicId: { type: String },
-    contentType: {
+
+    format: {
       type: String,
       enum: ["TEXT", "IMAGE", "VIDEO"],
       default: "TEXT",
@@ -80,15 +105,17 @@ const PostSchema = new mongoose.Schema(
     viewsCount: { type: Number, default: 0 },
     sharesCount: { type: Number, default: 0 },
 
+    reactionCounts: { type: Map, of: Number, default: {} },
+    totalReactions: { type: Number, default: 0 },
+
+    visibility: {
+      type: String,
+      enum: VISIBILITY_TYPES,
+      default: "PUBLIC",
+    },
+
     aiSummary: { type: String },
     aiTags: [String],
-
-    reactionCounts: {
-      type: Map,
-      of: Number,
-      default: {},
-    },
-    totalReactions: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -112,5 +139,4 @@ PostSchema.post("findOneAndDelete", async function (doc) {
 
 const Comment = mongoose.model("Comment", CommentSchema);
 const Post = mongoose.model("Post", PostSchema);
-
 export { Comment, Post };
