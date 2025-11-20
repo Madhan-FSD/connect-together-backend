@@ -14,7 +14,9 @@ exports.isAuthenticated = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
 
-    let user = await USER.findById(decoded.id).select("-password");
+    let user = await USER.findById(decoded.id)
+      .select("-password")
+      .populate("role");
 
     if (user) {
       req.user = {
@@ -23,7 +25,10 @@ exports.isAuthenticated = async (req, res, next) => {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
-        role: user.role?.role || "user",
+        // role: user.role?.role || "user",
+        roleId: user.role?._id,
+        permissions: user.role?.permissions || [],
+        roleName: user.role?.roleName || "user",
       };
       return next();
     }
