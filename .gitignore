@@ -8,3 +8,6 @@ ml/model/
 __pycache__/
 training_data.csv
 requirements.txt
+node_modules
+.env
+PRD.md
