@@ -1,5 +1,10 @@
 const BUSINESS = require("../../../models/business/business");
 const { v4: uuidv4 } = require("uuid");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../../utils/responseHandler");
 
 exports.createBusiness = async (req, res) => {
   try {
@@ -12,18 +17,21 @@ exports.createBusiness = async (req, res) => {
     } = req.body;
 
     if (!businessName || !businessCode || !addressBusiness || !buisnessAbout) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields required" });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "businessName, businessCode, addressBusiness, and buisnessAbout are required",
+      );
     }
 
     const existingBusiness = await BUSINESS.findOne({ ownerId: req.user.id });
 
     if (existingBusiness) {
-      return res.status(400).json({
-        success: false,
-        message: "You have already created this business data",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Business already exists for this admin",
+      );
     }
 
     let logoBase64 = null;
@@ -58,14 +66,15 @@ exports.createBusiness = async (req, res) => {
 
     await newBusiness.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Business registered successfully",
-      businessId: newBusiness.businessId,
-    });
+    return responseHandler(
+      res,
+      STATUS.CREATED,
+      "Business created successfully",
+      newBusiness,
+    );
   } catch (err) {
     console.log("Register Business Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    return errorResponse(res, err);
   }
 };
 
@@ -98,18 +107,15 @@ exports.getBusinessProfile = async (req, res) => {
     }
 
     if (!business) {
-      return res.status(404).json({
-        success: false,
-        message: "Business not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Business not found");
     }
 
     if (business.audit?.isDeleted === true) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your profile is disabled. Contact super admin to enable your profile.",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Your profile is disabled. Contact super admin to enable your profile.",
+      );
     }
 
     const logoBase64 = business.busineessLogo
@@ -120,21 +126,19 @@ exports.getBusinessProfile = async (req, res) => {
       ? `data:image/png;base64,${business.busineessBanner}`
       : null;
 
-    return res.status(200).json({
-      success: true,
-      message: "Business profile fetched successfully",
-      business: {
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Business profile fetched successfully",
+      {
         ...business,
         busineessLogo: logoBase64,
         busineessBanner: bannerBase64,
       },
-    });
+    );
   } catch (error) {
     console.error("Get Business Profile Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, error);
   }
 };
 
@@ -143,18 +147,19 @@ exports.editBusiness = async (req, res) => {
     const business = await BUSINESS.findOne({ ownerId: req.user.id });
 
     if (!business) {
-      return res.status(404).json({
-        success: false,
-        message: "Business not found for this admin",
-      });
+      return responseHandler(
+        res,
+        STATUS.NOT_FOUND,
+        "Business not found for this admin",
+      );
     }
 
     if (business.audit?.isDeleted === true) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your profile is disabled. Contact super admin to enable your profile.",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Your profile is disabled. Contact super admin to enable your profile.",
+      );
     }
 
     const updatable = [
@@ -188,14 +193,15 @@ exports.editBusiness = async (req, res) => {
       { new: true },
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Business updated successfully",
-      business: updatedBusiness,
-    });
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Business updated successfully",
+      updatedBusiness,
+    );
   } catch (err) {
     console.log("Edit Business Error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return errorResponse(res, err);
   }
 };
 
@@ -206,28 +212,19 @@ exports.softDeleteBusiness = async (req, res) => {
     });
 
     if (!business) {
-      return res.status(404).json({
-        success: false,
-        message: "Business not found for this admin",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Business not found");
     }
     if (business.audit?.isDeleted === true) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your profile is disabled. Contact super admin to enable your profile.",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Your profile is disabled. Contact super admin to enable your profile.",
+      );
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Business soft-deleted successfully",
-    });
+    return responseHandler(res, STATUS.OK, "Business deleted successfully");
   } catch (err) {
     console.log("Soft Delete Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, err);
   }
 };
