@@ -8,7 +8,6 @@ const courseSchema = new mongoose.Schema({
   subtitle: String,
   description: String,
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "Users" },
   category: String,
   subCategory: String,
   courseType: { type: String, enum: ["online", "offline", "hybrid"] },

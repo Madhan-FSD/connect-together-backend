@@ -1,4 +1,9 @@
 const USER = require("../../models/auth/user");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../utils/responseHandler");
 
 exports.userList = async (req, res) => {
   try {
@@ -41,8 +46,7 @@ exports.userList = async (req, res) => {
 
     const total = await USER.countDocuments(filter);
 
-    return res.status(200).json({
-      success: true,
+    return responseHandler(res, STATUS.OK, "Users fetched successfully", {
       total,
       page,
       limit,
@@ -51,10 +55,6 @@ exports.userList = async (req, res) => {
     });
   } catch (error) {
     console.log("Error listing users:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };

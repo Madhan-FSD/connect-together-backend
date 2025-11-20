@@ -1,18 +1,10 @@
-import express from "express";
-
-// Controllers
-import Auth from "../../controllers/auth/users.js";
-import onBoarding from "../../controllers/auth/onBoarding.js";
-import OTP from "../../controllers/auth/otp.js";
-import { googleLogin } from "../../controllers/auth/googleLogin.js";
-import { updatePhoto } from "../../controllers/photos/index.js";
-
-// Middleware
-import authMiddleware from "../../middleware/auth.js";
-import upload from "../../middleware/upload.js";
-
-// Validators
-import {
+const express = require("express");
+const router = express.Router();
+const Auth = require("../../controllers/auth/users");
+const onBoarding = require("../../controllers/auth/onBoarding");
+const OTP = require("../../controllers/auth/otp");
+const PROFILE = require("../../controllers/auth/profile");
+const {
   validateSignUp,
   loginValidate,
 } = require("../../validations/user.validate");
@@ -42,8 +34,8 @@ router.post("/forgot/reset", Auth.resetPassword);
 // OTP management
 router.post("/otp/resend", OTP.resendOtp);
 router.post("/onboarding", onBoarding.onBoarding);
-router.get("/profile", isAuthenticated, Auth.profile);
-router.patch("/edit-profile", isAuthenticated, Auth.editProfile);
+router.get("/profile", isAuthenticated, PROFILE.profile);
+router.patch("/edit-profile", isAuthenticated, PROFILE.editProfile);
 router.post("/update-photo", upload.single("photo"), updatePhoto);
 
 // ============================

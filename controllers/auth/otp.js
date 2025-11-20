@@ -1,9 +1,14 @@
-import OTP from "../../models/auth/otp.js";
-import USER from "../../models/auth/user.js";
-import getWelcomeEmailTemplate from "../../templates/welcomeOnBoard.js";
-import sendOtpEmail from "../../utils/maller.js";
-import jwt from "jsonwebtoken";
-import sendOTP from "../../helpers/sendOtpHandler.js";
+const OTP = require("../../models/auth/otp");
+const USER = require("../../models/auth/user");
+const getWelcomeEmailTemplate = require("../../templates/welcomeOnBoard");
+const sendOtpEmail = require("../../utils/maller");
+const jwt = require("jsonwebtoken");
+const sendOTP = require("../../helpers/sendOtpHandler");
+const {
+  responseHandler,
+  errorResponse,
+  STATUS,
+} = require("../../utils/responseHandler");
 
 export const verifySignUpOtp = async (req, res) => {
   try {
@@ -11,19 +16,16 @@ export const verifySignUpOtp = async (req, res) => {
 
     const otpData = await OTP.findOne({ email, otpType: "signup" });
     if (!otpData)
-      return res.status(400).json({ success: false, message: "OTP not found" });
+      return responseHandler(res, STATUS.NOT_FOUND, "OTP not found");
 
     if (otpData.otp !== Number(otp))
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
+      return responseHandler(res, STATUS.BAD, "Invalid OTP");
 
     if (otpData.otpExpiry < Date.now())
-      return res.status(400).json({ success: false, message: "OTP expired" });
+      return responseHandler(res, STATUS.BAD, "OTP has expired");
 
     const user = await USER.findOne({ email });
-    if (!user)
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
+    if (!user) return responseHandler(res, STATUS.NOT_FOUND, "User not found");
 
     await USER.updateOne(
       { email },
@@ -43,13 +45,10 @@ export const verifySignUpOtp = async (req, res) => {
       getWelcomeEmailTemplate(user.firstName, email),
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Signup verified successfully",
-    });
+    return responseHandler(res, STATUS.OK, "OTP verified successfully");
   } catch (error) {
     console.error("Verify OTP Error:", error.message);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
@@ -58,11 +57,12 @@ export const verifyLoginOtp = async (req, res) => {
     const { email, otp } = req.body;
     const otpData = await OTP.findOne({ email, otpType: "login" });
 
-    if (!otpData) return res.status(400).json({ message: "OTP not found" });
+    if (!otpData)
+      return responseHandler(res, STATUS.NOT_FOUND, "OTP not found");
     if (otpData.otp !== Number(otp))
-      return res.status(400).json({ message: "Invalid OTP" });
+      return responseHandler(res, STATUS.BAD, "Invalid OTP");
     if (otpData.otpExpiry < Date.now())
-      return res.status(400).json({ message: "OTP expired" });
+      return responseHandler(res, STATUS.BAD, "OTP has expired");
 
     const user = await USER.findOne({ email }).select("-password");
 
@@ -74,9 +74,12 @@ export const verifyLoginOtp = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    return res.status(200).json({ message: "Login successful", token, user });
+    return responseHandler(res, STATUS.OK, "OTP verified successfully", {
+      token,
+      user,
+    });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return errorResponse(res, error);
   }
 };
 
@@ -85,12 +88,12 @@ export const resendOtp = async (req, res) => {
     const { email, otpType } = req.body;
     const user = await USER.findOne({ email });
 
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!user) return responseHandler(res, STATUS.NOT_FOUND, "User not found");
 
     const response = await sendOTP(email, user.firstName, otpType);
-    return res.status(200).json(response);
+    return responseHandler(res, STATUS.OK, response);
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return errorResponse(res, error);
   }
 };
 

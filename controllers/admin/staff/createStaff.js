@@ -1,70 +1,55 @@
 const BRANCH = require("../../../models/branch/branch");
-const STAFF = require("../../../models/staff/staff");
+const USER = require("../../../models/auth/user");
 const { v4: uuidv4 } = require("uuid");
+const bcrypt = require("bcrypt");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../../utils/responseHandler");
 
 exports.createStaff = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, branchId } = req.body;
 
     if (!firstName || !lastName || !email || !phone || !password || !branchId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "firstName, lastName, email, phone, password, and branchId are required",
+      );
     }
 
     const branch = await BRANCH.findOne({ branchId });
 
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found",
-      });
+    if (!branch || branch.audit.isDeleted) {
+      return responseHandler(res, STATUS.NOT_FOUND, "Branch not found");
     }
 
-    if (branch.audit.isDeleted) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot create staff in a deleted branch",
-      });
-    }
+    const emailExists = await USER.findOne({ email });
+    const phoneExists = await USER.findOne({ phone });
 
-    if (
-      branch.user.toString() !== req.user.id.toString() &&
-      req.user.role !== "entityAdmin" &&
-      req.user.role !== "superAdmin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to add staff to this branch",
-      });
-    }
-
-    if (!branch) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or inactive branch",
-      });
-    }
-
-    const emailExists = await STAFF.findOne({ email });
     if (emailExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already in use",
-      });
+      return responseHandler(res, STATUS.BAD, "Email already exists");
     }
 
-    const staff = await STAFF.create({
-      staffId: uuidv4(),
+    if (phoneExists) {
+      return responseHandler(res, STATUS.BAD, "Phone number already exists");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const staff = await USER.create({
+      userId: uuidv4(),
       firstName,
       lastName,
       email,
       phone,
-      password,
+      password: hashedPassword,
       branchId,
-      user: req.user.id,
+      isStaff: true,
       role: { role: "StaffAdmin" },
+
       audit: {
         createdBy: req.user.id,
         updatedBy: req.user.id,
@@ -74,131 +59,54 @@ exports.createStaff = async (req, res) => {
       },
     });
 
-    const finalResponse = {
-      ...staff.toObject(),
-      branch: {
-        branchId: branch.branchId,
-        branchName: branch.branchName,
-        branchCode: branch.branchCode,
-      },
-      user: {
-        id: req.user.id,
-        firstName: req.user.firstName,
-        lastName: req.user.lastName,
-        email: req.user.email,
-        role: req.user.role,
-      },
-    };
-
-    return res.status(201).json({
-      success: true,
-      message: "Staff created successfully",
-      data: finalResponse,
-    });
+    return responseHandler(
+      res,
+      STATUS.CREATED,
+      "Staff created successfully",
+      staff,
+    );
   } catch (error) {
-    console.log("Create Staff Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
-exports.getStaffList = async (req, res) => {
+exports.getMyStaffProfile = async (req, res) => {
   try {
-    const { branchId } = req.params;
+    const staffId = req.user.id;
 
-    const branch = await BRANCH.findOne({
-      branchId,
-      user: req.user.id,
-    });
-
-    if (!branch) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to view staff for this branch",
-      });
-    }
-
-    if (!branch.role || branch.role.role !== "BranchAdmin") {
-      return res.status(403).json({
-        success: false,
-        message: "This branch does not belong to a Branch Admin",
-      });
-    }
-
-    const staffList = await STAFF.find({
-      branchId,
+    const staff = await USER.findOne({
+      _id: staffId,
+      isStaff: true,
+      "audit.isDeleted": false,
     }).select("-password");
 
-    return res.status(200).json({
-      success: true,
-      data: staffList,
-    });
-  } catch (error) {
-    console.log("Get Staff Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-exports.getStaffProfile = async (req, res) => {
-  try {
-    const { staffId } = req.params;
-
-    if (
-      !req.user.audit ||
-      req.user.audit.isDeleted ||
-      !req.user.audit.isActive
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Branch Admin or Entity Admin must enable your profile",
-      });
+    if (!staff) {
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
 
-    const staff = await STAFF.findOne({ staffId });
-    if (!staff || staff.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff not found",
-      });
-    }
-
-    const branch = await BRANCH.findOne({
-      branchId: staff.branchId,
-      user: req.user.id,
-      "audit.isDeleted": false,
-      "audit.isActive": true,
-    });
-
-    if (!branch) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to view this staff",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: staff,
-    });
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Staff profile fetched successfully",
+      staff,
+    );
   } catch (error) {
     console.log("Get Staff Profile Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
 exports.updateStaff = async (req, res) => {
   try {
-    const { staffId } = req.params;
+    const { id } = req.params;
 
-    const staff = await STAFF.findOne({ staffId });
+    const staff = await USER.findById(id);
+
     if (!staff || staff.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
+
+    const isEntityAdmin = req.user.role === "entityAdmin";
 
     const isBranchAdmin = await BRANCH.findOne({
       branchId: staff.branchId,
@@ -206,17 +114,39 @@ exports.updateStaff = async (req, res) => {
     });
 
     const isSelf =
-      req.user.role === "StaffAdmin" && req.user.staffId === staffId;
+      req.user.role === "StaffAdmin" && req.user.id === staff._id.toString();
 
-    if (!isBranchAdmin && !isSelf) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this staff",
+    if (!isEntityAdmin && !isBranchAdmin && !isSelf) {
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "Not authorized to update staff",
+      );
+    }
+
+    if (req.body.email && req.body.email !== staff.email) {
+      const emailExists = await USER.findOne({
+        email: req.body.email,
+        _id: { $ne: staff._id },
       });
+
+      if (emailExists) {
+        return responseHandler(res, STATUS.BAD, "Email already in use");
+      }
+    }
+
+    if (req.body.phone && req.body.phone !== staff.phone) {
+      const phoneExists = await USER.findOne({
+        phone: req.body.phone,
+        _id: { $ne: staff._id },
+      });
+
+      if (phoneExists) {
+        return responseHandler(res, STATUS.BAD, "Phone number already in use");
+      }
     }
 
     const allowed = ["firstName", "lastName", "email", "phone"];
-
     allowed.forEach((key) => {
       if (req.body[key] !== undefined) {
         staff[key] = req.body[key];
@@ -226,64 +156,47 @@ exports.updateStaff = async (req, res) => {
     staff.audit.updatedBy = req.user.id;
     await staff.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Staff updated successfully",
-      data: staff,
-    });
+    return responseHandler(res, STATUS.OK, "Staff updated successfully", staff);
   } catch (error) {
     console.log("Update Staff Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
 exports.deleteStaff = async (req, res) => {
   try {
-    const { staffId } = req.params;
+    const { id } = req.params;
 
-    if (
-      !req.user.audit ||
-      req.user.audit.isDeleted ||
-      !req.user.audit.isActive
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Branch Admin or Entity Admin must enable your profile",
-      });
-    }
+    const staff = await USER.findById(id);
 
-    const staff = await STAFF.findOne({ staffId });
     if (!staff || staff.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
 
-    const branch = await BRANCH.findOne({
+    const isEntityAdmin = req.user.role === "entityAdmin";
+
+    const isBranchAdmin = await BRANCH.findOne({
       branchId: staff.branchId,
       user: req.user.id,
       "audit.isDeleted": false,
       "audit.isActive": true,
     });
 
-    if (!branch) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete staff from this branch",
-      });
+    if (!isEntityAdmin && !isBranchAdmin) {
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "Not authorized to delete staff",
+      );
     }
 
     staff.audit.isDeleted = true;
     staff.audit.deletedBy = req.user.id;
     await staff.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Staff deleted successfully (soft delete)",
-    });
+    return responseHandler(res, STATUS.OK, "Staff deleted successfully");
   } catch (error) {
     console.log("Delete Staff Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };

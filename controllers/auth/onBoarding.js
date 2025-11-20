@@ -1,5 +1,10 @@
-import USER from "../../models/auth/user.js";
-import Counter from "../../models/auth/counter.js";
+const USER = require("../../models/auth/user");
+const Counter = require("../../models/auth/counter");
+const {
+  responseHandler,
+  errorResponse,
+  STATUS,
+} = require("../../utils/responseHandler");
 
 const getNextChildId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -17,32 +22,32 @@ export const onBoarding = async (req, res) => {
     const { email, hasChild, childData } = req.body;
 
     const user = await USER.findOne({ email });
-    if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
-    }
+    if (!user) return responseHandler(res, STATUS.NOT_FOUND, "User not found");
 
     if (
       user.audit?.hasChild ||
       user.role?.role === "parent" ||
       (user.children && user.children.length > 0)
     ) {
-      return res.status(400).json({
-        success: false,
-        message: "Onboarding already completed",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "User has already completed onboarding",
+      );
     }
 
     if (!hasChild) {
       user.audit.hasChild = false;
       await user.save();
 
-      return res.status(200).json({
-        success: true,
-        message: "Onboarding skipped successfully",
-        user,
-      });
+      return responseHandler(
+        res,
+        STATUS.CREATED,
+        "Onboarding completed successfully",
+        {
+          user,
+        },
+      );
     }
 
     if (hasChild && childData) {
@@ -66,23 +71,20 @@ export const onBoarding = async (req, res) => {
       user.children.push(...newChildren);
       await user.save();
 
-      return res.status(200).json({
-        success: true,
-        message: `${newChildren.length} child${
-          newChildren.length > 1 ? "ren" : ""
-        } added successfully`,
-        user,
-      });
+      return responseHandler(
+        res,
+        STATUS.CREATED,
+        "Onboarding completed successfully",
+        {
+          user,
+        },
+      );
     }
 
-    return res.status(400).json({ message: "Invalid onboarding request" });
+    return responseHandler(res, S, "Invalid onboarding data");
   } catch (error) {
     console.error("Onboarding Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
 

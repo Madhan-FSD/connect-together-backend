@@ -18,8 +18,7 @@ const HolidayBranchSchema = new mongoose.Schema(
       required: true,
     },
     hoildayTypes: {
-      type: String,
-      enum: ["full_holiday", "half_holiday"],
+      type: Boolean,
       required: true,
     },
     openingTime: {

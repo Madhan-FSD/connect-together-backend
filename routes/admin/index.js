@@ -5,9 +5,11 @@ const AdminInstitutions = require("../../controllers/admin/institutions/institut
 const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
 const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
-const Branch = require("../../controllers/admin/branch/createBranch");
+const Branch = require("../../controllers/admin/branch/createBramch");
+const BranchProfile = require("../../controllers/admin/branch/branchList");
 const Staff = require("../../controllers/admin/staff/createStaff");
 const courseCtrl = require("../../controllers/admin/course/course");
+const CourseList = require("../../controllers/admin/course/courseList");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -67,8 +69,8 @@ router.post(
   upload.single("branchLogo"),
   Branch.createBranch,
 );
-router.get("/branch/all", isAuthenticated, Branch.getAllBranches);
-router.get("/branch/:branchId", isAuthenticated, Branch.getSingleBranch);
+router.get("/branch/all", isAuthenticated, BranchProfile.getAllBranches);
+router.get("/branch/:branchId", isAuthenticated, BranchProfile.getSingleBranch);
 router.put(
   "/branch/update/:branchId",
   isAuthenticated,
@@ -78,7 +80,7 @@ router.put(
 router.delete(
   "/branch/delete/:branchId",
   isAuthenticated,
-  Branch.softDeleteBranch,
+  BranchProfile.softDeleteBranch,
 );
 router.post(
   "/create-business",
@@ -111,18 +113,9 @@ router.delete(
 );
 
 router.post("/create-staff", isAuthenticated, Staff.createStaff);
-router.put("/update-staff/:staffId", isAuthenticated, Staff.updateStaff);
-router.get(
-  "/get-staff-profile-for-branch/:branchId",
-  isAuthenticated,
-  Staff.getStaffList,
-);
-router.delete(
-  "/staff-profile-deleted/:staffId",
-  isAuthenticated,
-  Staff.deleteStaff,
-);
-router.get("/staff-profile/:staffId", isAuthenticated, Staff.getStaffProfile);
+router.put("/update-staff/:id", isAuthenticated, Staff.updateStaff);
+router.delete("/staff-profile-deleted/:id", isAuthenticated, Staff.deleteStaff);
+router.get("/staff-profile", isAuthenticated, Staff.getMyStaffProfile);
 
 router.post(
   "/create-course",
@@ -133,6 +126,20 @@ router.post(
   ]),
   courseCtrl.createCourse,
 );
-router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
+router.get("/course-list", isAuthenticated, CourseList.getCourses);
+router.put(
+  "/update-course/:courseId",
+  isAuthenticated,
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },
+  ]),
+  courseCtrl.updateCourse,
+);
+router.delete(
+  "/delete-course/:courseId",
+  isAuthenticated,
+  CourseList.deleteCourse,
+);
 
 module.exports = router;

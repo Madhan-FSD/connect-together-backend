@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 const USER = require("../models/auth/user");
-const STAFF = require("../models/staff/staff");
 
 exports.isAuthenticated = async (req, res, next) => {
   try {
@@ -15,7 +14,9 @@ exports.isAuthenticated = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
 
-    let user = await USER.findById(decoded.id).select("-password");
+    let user = await USER.findById(decoded.id)
+      .select("-password")
+      .populate("role");
 
     if (user) {
       req.user = {
@@ -25,23 +26,9 @@ exports.isAuthenticated = async (req, res, next) => {
         lastName: user.lastName,
         phone: user.phone,
         role: user.role?.role || "user",
-        isStaff: false,
-      };
-      return next();
-    }
-
-    let staff = await STAFF.findById(decoded.id).select("-password");
-
-    if (staff) {
-      req.user = {
-        id: staff._id,
-        email: staff.email,
-        firstName: staff.firstName,
-        lastName: staff.lastName,
-        phone: staff.phone,
-        role: staff.role?.role || "StaffAdmin",
-        branchId: staff.branchId,
-        isStaff: true,
+        roleId: user.role?._id,
+        permissions: user.role?.permissions || [],
+        roleName: user.role?.roleName || "user",
       };
       return next();
     }
