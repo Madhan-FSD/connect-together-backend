@@ -60,7 +60,7 @@ exports.signUp = async (req, res) => {
       "User registered successfully. OTP sent to email for verification.",
     );
   } catch (error) {
-    return errorResponse(res, err);
+    return errorResponse(res, error);
   }
 };
 

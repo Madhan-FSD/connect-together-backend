@@ -6,6 +6,7 @@ const Users = require("../../controllers/users/users-list");
 const Businnes = require("../../controllers/admin/business/addorUpdateBusiness");
 const CompanyInfo = require("../../controllers/admin/companyInformation/companyInformation");
 const Branch = require("../../controllers/admin/branch/createBramch");
+const BranchProfile = require("../../controllers/admin/branch/branchList");
 const Staff = require("../../controllers/admin/staff/createStaff");
 const courseCtrl = require("../../controllers/admin/course/course");
 const multer = require("multer");
@@ -67,8 +68,8 @@ router.post(
   upload.single("branchLogo"),
   Branch.createBranch,
 );
-router.get("/branch/all", isAuthenticated, Branch.getAllBranches);
-router.get("/branch/:branchId", isAuthenticated, Branch.getSingleBranch);
+router.get("/branch/all", isAuthenticated, BranchProfile.getAllBranches);
+router.get("/branch/:branchId", isAuthenticated, BranchProfile.getSingleBranch);
 router.put(
   "/branch/update/:branchId",
   isAuthenticated,
@@ -78,7 +79,7 @@ router.put(
 router.delete(
   "/branch/delete/:branchId",
   isAuthenticated,
-  Branch.softDeleteBranch,
+  BranchProfile.softDeleteBranch,
 );
 router.post(
   "/create-business",
