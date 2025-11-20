@@ -2,6 +2,11 @@ const Course = require("../../../models/course/course");
 const Branch = require("../../../models/branch/branch");
 const USER = require("../../../models/auth/user");
 const { v4: uuidv4 } = require("uuid");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../../utils/responseHandler");
 
 exports.createCourse = async (req, res) => {
   try {
@@ -19,27 +24,30 @@ exports.createCourse = async (req, res) => {
     } = req.body;
 
     if (!title || !description || !basePrice || !courseType) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "title, description, basePrice, and courseType are required",
+      );
     }
 
     const role = req.user.role;
     const userId = req.user.id;
 
     if (!["entityAdmin", "BranchAdmin", "StaffAdmin"].includes(role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can create courses",
-      });
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "You do not have permission to create a course",
+      );
     }
 
     if (!branchId) {
-      return res.status(400).json({
-        success: false,
-        message: "branchId is required",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "branchId is required to create a course",
+      );
     }
 
     const branchDoc = await Branch.findOne({
@@ -48,18 +56,16 @@ exports.createCourse = async (req, res) => {
     });
 
     if (!branchDoc) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Branch not found");
     }
 
     if (role === "BranchAdmin") {
       if (branchDoc.user.toString() !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: "BranchAdmin can only create courses in their own branch",
-        });
+        return responseHandler(
+          res,
+          STATUS.UNAUTHORIZED,
+          "You are not authorized to create courses in this branch",
+        );
       }
     }
 
@@ -73,10 +79,11 @@ exports.createCourse = async (req, res) => {
       });
 
       if (!staff) {
-        return res.status(403).json({
-          success: false,
-          message: "Staff is not allowed to create courses in this branch",
-        });
+        return responseHandler(
+          res,
+          STATUS.UNAUTHORIZED,
+          "Staff is not allowed to create courses in this branch",
+        );
       }
     }
 
@@ -85,10 +92,11 @@ exports.createCourse = async (req, res) => {
       try {
         contentArr = JSON.parse(courseContent);
       } catch (err) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid courseContent JSON",
-        });
+        return responseHandler(
+          res,
+          STATUS.BAD,
+          "Invalid JSON format for courseContent",
+        );
       }
     }
 
@@ -118,59 +126,15 @@ exports.createCourse = async (req, res) => {
       },
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "Course created successfully",
-      data: newCourse,
-    });
+    return responseHandler(
+      res,
+      STATUS.CREATED,
+      "Course created successfully",
+      newCourse,
+    );
   } catch (error) {
     console.log("Create Course Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-exports.getCourses = async (req, res) => {
-  try {
-    const role = req.user.role;
-    const userId = req.user.id;
-
-    let filter = {};
-
-    if (role === "entityAdmin") {
-      filter = {};
-    }
-
-    if (role === "BranchAdmin") {
-      const branch = await Branch.findOne({ user: userId });
-
-      if (!branch) {
-        return res.status(404).json({
-          success: false,
-          message: "Branch not found for this BranchAdmin",
-        });
-      }
-
-      filter = { branchId: branch._id };
-    }
-
-    if (role === "StaffAdmin") {
-      filter = { createdBy: userId };
-    }
-
-    filter["audit.isDeleted"] = false;
-
-    const courses = await Course.find(filter)
-      .populate("createdBy", "firstName lastName email role")
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      count: courses.length,
-      data: courses,
-    });
-  } catch (error) {
-    console.log("Get Courses Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
@@ -183,10 +147,7 @@ exports.updateCourse = async (req, res) => {
     const course = await Course.findOne({ courseId });
 
     if (!course || course.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Course not found");
     }
 
     let isAllowed = false;
@@ -207,10 +168,11 @@ exports.updateCourse = async (req, res) => {
     }
 
     if (!isAllowed) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to edit this course",
-      });
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "Not authorized to update this course",
+      );
     }
 
     const allowed = [
@@ -231,10 +193,11 @@ exports.updateCourse = async (req, res) => {
           try {
             course.courseContent = JSON.parse(req.body[key]);
           } catch (e) {
-            return res.status(400).json({
-              success: false,
-              message: "Invalid JSON for courseContent",
-            });
+            return responseHandler(
+              res,
+              STATUS.BAD,
+              "Invalid JSON format for courseContent",
+            );
           }
         } else {
           course[key] = req.body[key];
@@ -245,72 +208,14 @@ exports.updateCourse = async (req, res) => {
     course.audit.updatedBy = userId;
     await course.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Course updated successfully",
-      data: course,
-    });
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Course updated successfully",
+      course,
+    );
   } catch (error) {
     console.log("Update Course Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-exports.deleteCourse = async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const userId = req.user.id;
-    const role = req.user.role;
-
-    const course = await Course.findOne({ courseId });
-
-    if (!course || course.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      });
-    }
-
-    let isAllowed = false;
-
-    if (role === "entityAdmin") {
-      isAllowed = true;
-    }
-
-    if (role === "BranchAdmin") {
-      const branch = await Branch.findOne({ user: userId });
-      if (branch && branch._id.toString() === course.branchId.toString()) {
-        isAllowed = true;
-      }
-    }
-
-    if (role === "StaffAdmin") {
-      if (course.createdBy.toString() === userId) {
-        isAllowed = true;
-      }
-    }
-
-    if (!isAllowed) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete this course",
-      });
-    }
-
-    course.audit.isDeleted = true;
-    course.audit.updatedBy = userId;
-
-    await course.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Course deleted successfully",
-    });
-  } catch (error) {
-    console.log("Delete Course Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };

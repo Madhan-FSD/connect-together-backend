@@ -25,7 +25,7 @@ exports.isAuthenticated = async (req, res, next) => {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
-        // role: user.role?.role || "user",
+        role: user.role?.role || "user",
         roleId: user.role?._id,
         permissions: user.role?.permissions || [],
         roleName: user.role?.roleName || "user",

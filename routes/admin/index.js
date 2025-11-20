@@ -9,6 +9,7 @@ const Branch = require("../../controllers/admin/branch/createBramch");
 const BranchProfile = require("../../controllers/admin/branch/branchList");
 const Staff = require("../../controllers/admin/staff/createStaff");
 const courseCtrl = require("../../controllers/admin/course/course");
+const CourseList = require("../../controllers/admin/course/courseList");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -125,7 +126,7 @@ router.post(
   ]),
   courseCtrl.createCourse,
 );
-router.get("/course-list", isAuthenticated, courseCtrl.getCourses);
+router.get("/course-list", isAuthenticated, CourseList.getCourses);
 router.put(
   "/update-course/:courseId",
   isAuthenticated,
@@ -138,7 +139,7 @@ router.put(
 router.delete(
   "/delete-course/:courseId",
   isAuthenticated,
-  courseCtrl.deleteCourse,
+  CourseList.deleteCourse,
 );
 
 module.exports = router;

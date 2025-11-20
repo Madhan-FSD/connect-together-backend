@@ -2,42 +2,39 @@ const BRANCH = require("../../../models/branch/branch");
 const USER = require("../../../models/auth/user");
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../../utils/responseHandler");
 
 exports.createStaff = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, branchId } = req.body;
 
     if (!firstName || !lastName || !email || !phone || !password || !branchId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "firstName, lastName, email, phone, password, and branchId are required",
+      );
     }
 
     const branch = await BRANCH.findOne({ branchId });
 
     if (!branch || branch.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid branch",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Branch not found");
     }
 
     const emailExists = await USER.findOne({ email });
     const phoneExists = await USER.findOne({ phone });
 
     if (emailExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
+      return responseHandler(res, STATUS.BAD, "Email already exists");
     }
 
     if (phoneExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number already exists",
-      });
+      return responseHandler(res, STATUS.BAD, "Phone number already exists");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -62,13 +59,14 @@ exports.createStaff = async (req, res) => {
       },
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "Staff created successfully",
-      data: staff,
-    });
+    return responseHandler(
+      res,
+      STATUS.CREATED,
+      "Staff created successfully",
+      staff,
+    );
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
@@ -83,22 +81,18 @@ exports.getMyStaffProfile = async (req, res) => {
     }).select("-password");
 
     if (!staff) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff profile not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
 
-    return res.status(200).json({
-      success: true,
-      data: staff,
-    });
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Staff profile fetched successfully",
+      staff,
+    );
   } catch (error) {
     console.log("Get Staff Profile Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
 
@@ -109,10 +103,7 @@ exports.updateStaff = async (req, res) => {
     const staff = await USER.findById(id);
 
     if (!staff || staff.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
 
     const isEntityAdmin = req.user.role === "entityAdmin";
@@ -126,10 +117,11 @@ exports.updateStaff = async (req, res) => {
       req.user.role === "StaffAdmin" && req.user.id === staff._id.toString();
 
     if (!isEntityAdmin && !isBranchAdmin && !isSelf) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this staff",
-      });
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "Not authorized to update staff",
+      );
     }
 
     if (req.body.email && req.body.email !== staff.email) {
@@ -139,10 +131,7 @@ exports.updateStaff = async (req, res) => {
       });
 
       if (emailExists) {
-        return res.status(400).json({
-          success: false,
-          message: "Email already in use",
-        });
+        return responseHandler(res, STATUS.BAD, "Email already in use");
       }
     }
 
@@ -153,10 +142,7 @@ exports.updateStaff = async (req, res) => {
       });
 
       if (phoneExists) {
-        return res.status(400).json({
-          success: false,
-          message: "Phone number already in use",
-        });
+        return responseHandler(res, STATUS.BAD, "Phone number already in use");
       }
     }
 
@@ -170,14 +156,10 @@ exports.updateStaff = async (req, res) => {
     staff.audit.updatedBy = req.user.id;
     await staff.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Staff updated successfully",
-      data: staff,
-    });
+    return responseHandler(res, STATUS.OK, "Staff updated successfully", staff);
   } catch (error) {
     console.log("Update Staff Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
 
@@ -188,10 +170,7 @@ exports.deleteStaff = async (req, res) => {
     const staff = await USER.findById(id);
 
     if (!staff || staff.audit.isDeleted) {
-      return res.status(404).json({
-        success: false,
-        message: "Staff not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Staff not found");
     }
 
     const isEntityAdmin = req.user.role === "entityAdmin";
@@ -204,22 +183,20 @@ exports.deleteStaff = async (req, res) => {
     });
 
     if (!isEntityAdmin && !isBranchAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete staff",
-      });
+      return responseHandler(
+        res,
+        STATUS.UNAUTHORIZED,
+        "Not authorized to delete staff",
+      );
     }
 
     staff.audit.isDeleted = true;
     staff.audit.deletedBy = req.user.id;
     await staff.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Staff deleted successfully (soft delete)",
-    });
+    return responseHandler(res, STATUS.OK, "Staff deleted successfully");
   } catch (error) {
     console.log("Delete Staff Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return errorResponse(res, error);
   }
 };
