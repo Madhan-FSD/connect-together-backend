@@ -1,5 +1,10 @@
 const COMPANY_DATA = require("../../../models/companyInformation/company-information");
 const { v4: uuidv4 } = require("uuid");
+const {
+  STATUS,
+  errorResponse,
+  responseHandler,
+} = require("../../../utils/responseHandler");
 
 exports.addCompanyInformation = async (req, res) => {
   try {
@@ -37,10 +42,11 @@ exports.addCompanyInformation = async (req, res) => {
       !website ||
       !contactEmail
     ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "established, communicationSource, sellerType, headquarters, description, website, and contactEmail are required",
+      );
     }
 
     const newCompany = await COMPANY_DATA.create({
@@ -66,26 +72,22 @@ exports.addCompanyInformation = async (req, res) => {
     });
 
     if (existingCompany) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Company information already exists for this entity admin. Please use update API.",
-        data: newCompany,
-      });
+      return responseHandler(
+        res,
+        STATUS.BAD,
+        "Company information already exists for this entity admin",
+      );
     }
 
-    return res.status(201).json({
-      success: true,
-      message: "Company information added successfully",
-      data: newCompany,
-    });
+    return responseHandler(
+      res,
+      STATUS.CREATED,
+      "Company information added successfully",
+      newCompany,
+    );
   } catch (error) {
     console.log("Add Company Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
 
@@ -96,30 +98,20 @@ exports.companyInformationProfile = async (req, res) => {
     }).populate("user", "firstName lastName email");
 
     if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Company information profile data is not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Company not found");
     }
 
     const companyLogoBase64 = company.companyLogo
       ? `data:image/png;base64,${company.companyLogo.toString("base64")}`
       : null;
 
-    return res.json({
-      success: true,
-      data: {
-        ...company._doc,
-        companyLogo: companyLogoBase64,
-      },
+    return responseHandler(res, STATUS.OK, "Company fetched successfully", {
+      ...company._doc,
+      companyLogo: companyLogoBase64,
     });
   } catch (error) {
     console.log("Get One Company Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
 
@@ -128,17 +120,11 @@ exports.updateCompanyInformation = async (req, res) => {
     const company = await COMPANY_DATA.findOne({ entityId: req.params.id });
 
     if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: "Company not found",
-      });
+      return responseHandler(res, STATUS.NOT_FOUND, "Company not found");
     }
 
     if (!req.body || Object.keys(req.body).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No data provided to update",
-      });
+      return responseHandler(res, STATUS.BAD, "No fields provided for update");
     }
 
     const allowedFields = [
@@ -168,19 +154,14 @@ exports.updateCompanyInformation = async (req, res) => {
 
     await company.save();
 
-    return res.json({
-      success: true,
-      message: "Company information updated successfully",
-      data: {
-        ...company._doc,
-      },
-    });
+    return responseHandler(
+      res,
+      STATUS.OK,
+      "Company information updated successfully",
+      company,
+    );
   } catch (error) {
     console.log("Update Company Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
+    return errorResponse(res, error);
   }
 };
