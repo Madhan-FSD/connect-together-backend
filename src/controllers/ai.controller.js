@@ -106,7 +106,7 @@ export const buildProfileWithAI = async (req, res) => {
 
     const experienceList = profile.experiences
       .map(
-        (e) => `${e.title} at ${e.company} (${e.location}): ${e.description}`
+        (e) => `${e.title} at ${e.company} (${e.location}): ${e.description}`,
       )
       .join(" || ");
 
@@ -184,7 +184,7 @@ export const buildProfileWithAI = async (req, res) => {
     const generatedHTML = result.response.text().trim();
 
     console.log(
-      `Cache miss: Generating and storing new resume for user ${userId}.`
+      `Cache miss: Generating and storing new resume for user ${userId}.`,
     );
 
     await AIInsight.create({
@@ -303,7 +303,7 @@ export const getSmartRecommendations = async (req, res) => {
 
       if (parentUser) {
         user = parentUser.children.find(
-          (c) => c._id.toString() === userId.toString()
+          (c) => c._id.toString() === userId.toString(),
         );
         isChild = true;
       }
@@ -331,7 +331,7 @@ export const getSmartRecommendations = async (req, res) => {
       projects: user.projects?.map((p) => p.name || p.description) || [],
       educations:
         user.educations?.map(
-          (e) => `${e.degree || ""} at ${e.institution || ""}`
+          (e) => `${e.degree || ""} at ${e.institution || ""}`,
         ) || [],
       featuredContent:
         user.featuredContent?.items?.map((i) => i.headline || i.category) || [],
@@ -393,7 +393,7 @@ Respond **only** in JSON:
       insightType: INSIGHT_TYPE,
       data: data,
     }).catch((storeErr) =>
-      console.error("Failed to store AI Insight:", storeErr)
+      console.error("Failed to store AI Insight:", storeErr),
     );
 
     res.status(200).json({
@@ -501,7 +501,7 @@ export const getActivityInsights = async (req, res) => {
     }
 
     const child = parentUser.children.find(
-      (c) => c._id.toString() === childId.toString()
+      (c) => c._id.toString() === childId.toString(),
     );
     if (!child) {
       return res.status(404).json({ error: "Child not found." });
@@ -541,8 +541,8 @@ export const getActivityInsights = async (req, res) => {
           ...(child.projects || []).map((p) => new Date(p.updatedAt || 0)),
           ...(child.educations || []).map((e) => new Date(e.updatedAt || 0)),
           ...(child.interests || []).map((i) => new Date(i.updatedAt || 0)),
-        ]
-      )
+        ],
+      ),
     );
 
     const isInsightStale =

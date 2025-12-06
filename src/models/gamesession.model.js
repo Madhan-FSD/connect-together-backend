@@ -21,6 +21,7 @@ const GameSessionSchema = new mongoose.Schema({
       "PATTERN",
       "LOGIC",
       "RIDDLE",
+      "OBJECT_BUILDER",
     ],
   },
   score: {

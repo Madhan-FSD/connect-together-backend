@@ -11,3 +11,7 @@ requirements.txt
 node_modules
 .env
 PRD.md
+
+.DS_Store
+yarn.lock
+package-lock.json

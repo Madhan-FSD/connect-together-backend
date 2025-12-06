@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import GameSession from "../models/gamesession.model.js";
 import { updateDailySummaryAndWallet } from "../utils/gameUtils.js";
 import { cleanJson } from "../utils/aiUtils.js";
+import axios from "axios";
+import { getGenAI } from "../config/genAi.js";
+import sharp from "sharp";
 
 dotenv.config();
 
@@ -12,7 +15,7 @@ const processGameSubmission = async (
   parentId,
   childId,
   gameType,
-  questionsWithAnswers
+  questionsWithAnswers,
 ) => {
   let score = 0;
   let coinsEarned = 0;
@@ -62,7 +65,7 @@ const processGameSubmission = async (
     childId,
     session._id,
     coinsEarned,
-    score
+    score,
   );
 
   return { score, maxScore, coinsEarned, sessionId: session._id };
@@ -96,7 +99,7 @@ export const submitTriviaAnswers = async (req, res) => {
       parentId,
       childId,
       "TRIVIA",
-      questionsWithAnswers
+      questionsWithAnswers,
     );
     res
       .status(200)
@@ -136,7 +139,7 @@ export const submitStoryChoice = async (req, res) => {
       parentId,
       childId,
       "STORY_ADVENTURE",
-      { storySegment, choice, isCorrect: isCorrect || false }
+      { storySegment, choice, isCorrect: isCorrect || false },
     );
     res.status(200).json({ message: "Story choice submitted.", ...result });
   } catch {
@@ -198,7 +201,7 @@ export const submitWordMasterAnswers = async (req, res) => {
       parentId,
       childId,
       gameType.toUpperCase().replace("-", "_"),
-      answers
+      answers,
     );
     res.status(200).json({
       message: `${gameType} results submitted successfully.`,
@@ -236,7 +239,7 @@ export const submitMathAnswers = async (req, res) => {
       parentId,
       childId,
       "MATH",
-      problemsWithAnswers
+      problemsWithAnswers,
     );
     res
       .status(200)
@@ -291,7 +294,7 @@ export const submitCodeDetectiveAnswers = async (req, res) => {
       parentId,
       childId,
       puzzleType.toUpperCase(),
-      puzzlesWithAnswers
+      puzzlesWithAnswers,
     );
     res.status(200).json({
       message: `${puzzleType} results submitted successfully.`,
@@ -308,7 +311,7 @@ export const getGameReport = async (req, res) => {
     if (!sessionId)
       return res.status(400).json({ error: "Missing sessionId." });
     const session = await GameSession.findById(sessionId).select(
-      "gameType score maxScore details coinsEarned createdAt -_id"
+      "gameType score maxScore details coinsEarned createdAt -_id",
     );
     if (!session)
       return res.status(404).json({ error: "Game session not found." });
@@ -321,5 +324,130 @@ export const getGameReport = async (req, res) => {
     });
   } catch {
     res.status(500).json({ error: "Failed to retrieve game report." });
+  }
+};
+
+export const generate3DObjectBuilder = async (req, res) => {
+  try {
+    const { theme = "forest", partsCount = 6 } = req.body;
+
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `
+Create a Pixar-style character puzzle.
+Theme: ${theme}
+
+Return ONLY JSON:
+{
+  "title":"",
+  "description":"",
+  "fullImagePrompt":"",
+  "parts":[{"id":1,"label":"Head"}]
+}
+
+Parts array must contain EXACTLY ${partsCount} items.
+No markdown, no backticks.
+`;
+
+    const aiResponse = await model.generateContent(prompt);
+    const rawText = (await aiResponse.response).text();
+    const jsonText = cleanJson(rawText);
+    let metaJson = JSON.parse(jsonText);
+
+    if (metaJson.parts.length < partsCount) {
+      const baseLabel = metaJson.parts[0].label || "Part";
+      for (let i = metaJson.parts.length; i < partsCount; i++) {
+        metaJson.parts.push({
+          id: i + 1,
+          label: `${baseLabel} ${i + 1}`,
+        });
+      }
+    }
+
+    const imageURL =
+      "https://image.pollinations.ai/prompt/" +
+      encodeURIComponent(metaJson.fullImagePrompt);
+
+    const imgResponse = await axios.get(imageURL, {
+      responseType: "arraybuffer",
+    });
+
+    const imgBuffer = Buffer.from(imgResponse.data);
+
+    // 🔥 Get actual image dimensions
+    const imageMeta = await sharp(imgBuffer).metadata();
+    const W = imageMeta.width;
+    const H = imageMeta.height;
+
+    // 🔥 Compute grid size
+    const grid = Math.ceil(Math.sqrt(partsCount)); // 6 → grid 3×3, 8 → grid 3×3, 10 → 4×4
+    const tileW = Math.floor(W / grid);
+    const tileH = Math.floor(H / grid);
+
+    const parts = [];
+
+    for (let i = 0; i < partsCount; i++) {
+      const row = Math.floor(i / grid);
+      const col = i % grid;
+
+      const left = col * tileW;
+      const top = row * tileH;
+
+      const buf = await sharp(imgBuffer)
+        .extract({
+          left,
+          top,
+          width: tileW,
+          height: tileH,
+        })
+        .png()
+        .toBuffer();
+
+      parts.push({
+        id: i + 1,
+        label: metaJson.parts[i].label,
+        image: "data:image/png;base64," + buf.toString("base64"),
+      });
+    }
+
+    res.json({
+      puzzle: {
+        title: metaJson.title,
+        description: metaJson.description,
+        fullImage: imageURL,
+        parts,
+      },
+    });
+  } catch (err) {
+    console.error("3D Builder Error:", err);
+    res.status(500).json({ error: "Failed to generate puzzle." });
+  }
+};
+
+export const submit3DObjectBuilder = async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const parentId = req.parentId;
+
+    const { attempts } = req.body;
+
+    if (!childId || !attempts) {
+      return res.status(400).json({ error: "Missing childId or attempts." });
+    }
+
+    const result = await processGameSubmission(
+      parentId,
+      childId,
+      "OBJECT_BUILDER",
+      attempts,
+    );
+
+    res.status(200).json({
+      message: "3D Object Builder results submitted.",
+      ...result,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to submit puzzle results." });
   }
 };

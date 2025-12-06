@@ -12,6 +12,8 @@ import {
   submitMathAnswers,
   submitCodeDetectiveAnswers,
   getGameReport,
+  generate3DObjectBuilder,
+  submit3DObjectBuilder,
 } from "../controllers/aigames.controller.js";
 
 const router = express.Router();
@@ -26,20 +28,23 @@ router.post("/:childId/trivia/submit", protectChild, submitTriviaAnswers);
 router.post(
   "/:childId/story-adventure/submit",
   protectChild,
-  submitStoryChoice
+  submitStoryChoice,
 );
 router.post(
   "/:childId/word-master/submit",
   protectChild,
-  submitWordMasterAnswers
+  submitWordMasterAnswers,
 );
 router.post("/:childId/math-challenge/submit", protectChild, submitMathAnswers);
 router.post(
   "/:childId/code-detective/submit",
   protectChild,
-  submitCodeDetectiveAnswers
+  submitCodeDetectiveAnswers,
 );
 
 router.get("/report/:sessionId", protectChild, getGameReport);
+
+router.post("/object-builder/generate", generate3DObjectBuilder);
+router.post("/object-builder/:childId/submit", submit3DObjectBuilder);
 
 export default router;
